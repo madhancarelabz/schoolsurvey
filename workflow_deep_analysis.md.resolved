@@ -1,0 +1,94 @@
+# 🧠 n8n Master Workflow — Definitive Source of Truth
+
+> [!IMPORTANT]
+> This is the ONLY accurate workflow reference. Based on the **old tested workflow** (ID: `TpzHhaMhOY8cERUu`). The "copy" workflow with Phase 7 n8n nodes was flawed and has been deleted.
+
+## Workflow Identity
+- **Name:** AI Voice Survey - Master Workflow
+- **ID:** TpzHhaMhOY8cERUu
+- **Webhook Path:** `/webhook/vapi-master`
+- **Status:** `active: true`
+- **Total Nodes:** 13
+
+---
+
+## All 13 Nodes
+
+| # | Node Name | Type | Purpose |
+|:---|:---|:---|:---|
+| 1 | Webhook: Vapi Master | webhook | Entry point — receives all Vapi events |
+| 2 | Switch: Event Type | switch | Routes: `tool-calls` vs `status-update` |
+| 3 | Respond: Event Acknowledged | respondToWebhook | Returns `{"status":"ok"}` for non-tool events |
+| 4 | Switch: Tool Call Name | switch | Routes: `next_question` vs `complete_session` |
+| 5 | Postgres: Fetch Session | postgres | Validates session (freshness + authorization) |
+| 6 | If: Valid Session? | if | Gates on `is_fresh` AND `is_authorized` |
+| 7 | Respond: Session Invalid | respondToWebhook | Returns error for expired/unauthorized sessions |
+| 8 | Switch: User Role Router | switch | Routes by role: TEACHER / ADMIN / SUPPORT |
+| 9 | Get row(s) in sheet | googleSheets | Loads questions from Google Sheets by role |
+| 10 | If: Initial Call? | if | Checks if `question_id == "INIT"` |
+| 11 | Postgres: Save Response | postgres | Saves answer with `confirmed = TRUE` |
+| 12 | Postgres: Count Responses | postgres | `SELECT COUNT(*) AS answer_count` |
+| 13 | Code: Pick Next Question | code | Simple logic: count → pick next or finish |
+
+**Completion Path (shared):**
+
+| # | Node Name | Type | Purpose |
+|:---|:---|:---|:---|
+| 14 | If: Survey Finished? | if | Checks `finished == true` |
+| 15 | Respond: Tool Call Result | respondToWebhook | Returns next question to Vapi |
+| 16 | Postgres: Compute Final Scores | postgres | Calculates Mindset/Toolset/Skillset scores |
+| 17 | HTTP Request (Chatwoot Push) | httpRequest | **DISABLED** — awaiting credentials |
+| 18 | Postgres: Burn Session Token | postgres | Sets session to COMPLETED |
+| 19 | Respond: Survey Complete | respondToWebhook | Final response to Vapi |
+
+---
+
+## Flow Maps
+
+### `next_question` Path
+```
+Webhook → Event Type (tool-calls) → Tool Name (next_question) → Fetch Session → Valid? 
+  → YES → Role Router → Google Sheets → Initial Call?
+      → TRUE (INIT): Count Responses → Pick Next → Finished?
+          → YES: Compute Scores → Chatwoot (disabled) → Burn Token → Respond Complete
+          → NO: Respond Tool Call Result
+      → FALSE (answer): Save Response → Count Responses → Pick Next → Finished? → ...
+  → NO → Respond Session Invalid
+```
+
+### `complete_session` Path
+```
+Webhook → Event Type (tool-calls) → Tool Name (complete_session) → Compute Final Scores → Chatwoot (disabled) → Burn Token → Respond Complete
+```
+
+---
+
+## Key SQL Queries
+
+**Fetch Session:**
+```sql
+SELECT id AS session_id, employee_id, status, role,
+  (created_at > NOW() - INTERVAL '72 hours') AS is_fresh,
+  (status = 'VERIFIED' OR status = 'IN_PROGRESS') AS is_authorized
+FROM sessions WHERE id = $1;
+```
+
+**Save Response:**
+```sql
+INSERT INTO responses (session_id, question_id, selected_option, category, score, confirmed)
+VALUES ($1, $2, $3, $4, $5, TRUE)
+ON CONFLICT (session_id, question_id) DO UPDATE SET 
+  selected_option = EXCLUDED.selected_option, 
+  category = EXCLUDED.category, score = EXCLUDED.score,
+  confirmed = TRUE, answered_at = NOW();
+```
+
+**Count Responses:**
+```sql
+SELECT COUNT(*)::int AS answer_count FROM responses WHERE session_id = $1;
+```
+
+---
+
+## Phase 7 Compliance
+Phase 7 (Legal Confirmation) is handled **entirely in the Vapi system prompt**, NOT in n8n. The assistant verbally confirms each answer before calling `next_question`.

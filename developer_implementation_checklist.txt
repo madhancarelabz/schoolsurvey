@@ -1,0 +1,164 @@
+AI VOICE SURVEY SYSTEM FOR SCHOOL EMPLOYEES
+
+Developer Implementation Checklist: 
+
+Environment: Contabo VPS (Frontend/API/DB) + n8n Cloud (Workflows) + Docker + Vapi + Sarvam AI
+
+Objective: Production-ready, legally defensible, network-resilient Malayalam voice survey system. 
+
+1. Infrastructure Setup (Contabo VPS) 
+
+Install Docker & Docker Compose 
+
+Configure Nginx for Website & Voice Gateway API (SSL required for Microphone/PWA access) 
+
+Create Postgres databases: school_survey, chatwoot_production (n8n is Cloud-hosted)
+
+Configure Redis for Chatwoot 
+
+Set up Docker networks (internal only exposure) 
+
+Verify all containers are running without errors 
+
+
+2. Database & Schema Validation 
+
+Create tables: sessions, responses, audio_assets, results, audit_logs 
+
+Implement session state machine (ISSUED → VERIFIED → IN_PROGRESS → COMPLETED → EXPIRED) 
+
+Ensure token burn only when status = COMPLETED 
+
+Add indexes on session_token and employee_id 
+
+Test DB connection from Voice Gateway and n8n 
+
+
+3. OTP & Security Implementation 
+
+Implement POST /otp/send endpoint 
+
+Implement POST /otp/verify endpoint 
+
+Store only OTP hash (never plaintext) 
+
+Limit OTP attempts (max 5) 
+
+Require OTP on every session re-entry 
+
+Implement 72-hour absolute expiry 
+
+Add soft device fingerprint check (warning only) 
+
+
+4. Voice Gateway API 
+
+Implement POST /session/start 
+
+Implement POST /voice/turn 
+
+Integrate Sarvam STT (Malayalam) 
+
+Convert WebM audio to WAV (16kHz mono) before STT if required 
+
+Integrate Sarvam TTS for Malayalam voice 
+
+Store user audio + confirmation audio in S3-compatible storage 
+
+Log audio metadata (URL, duration, SHA256 hash) 
+
+
+5. n8n Workflows 
+
+Create master webhook: /webhook/vapi-master 
+
+Validate session state before processing turn 
+
+Implement fixed question bank per role 
+
+Apply deterministic rubric scoring (option-based only) 
+
+Store response per question (no JSON blobs) 
+On completion: compute final scores 
+
+Push summary + scores + tags to Chatwoot 
+
+Burn session token 
+
+
+6. Vapi Configuration 
+
+Create Voice Assistant 
+
+Configure Tools: next_question, complete_session 
+
+Set webhook URL to n8n master webhook 
+
+Disable autonomous AI scoring 
+
+Use Sarvam Malayalam voice (Bulbul:v1) 
+
+Test real-time streaming in browser 
+
+
+7. Option Confirmation System (Legal Compliance) 
+
+System must read option list (1–4) 
+
+User must select option number explicitly 
+
+System repeats selected option 
+
+User confirms (Yes/Correct) 
+
+Score saved only after confirmation 
+
+Store both answer audio and confirmation audio 
+
+
+8. Chatwoot Dashboard 
+
+Create Inbox: 'AI Survey – Staff' 
+
+Push one conversation per completed survey 
+
+Message 1: Employee metadata 
+
+Message 2: Scores (Mindset/Toolset/Skillset/Total) 
+
+Message 3: Themes + training recommendation 
+
+Apply structured tags for filtering 
+
+
+9. Audio Retention & Compliance 
+
+Store audio in object storage (not DB) 
+
+Implement 90-day deletion cron job 
+
+Retain transcript + scores for 12 months 
+
+Restrict audio access to HR/Principal only 
+
+Log all admin access in audit_logs 
+
+
+10. Final Acceptance Testing 
+
+Test OTP failure scenarios 
+
+Test resume after network drop 
+
+Test token burn after completion 
+
+Test expired session (after 72h) 
+
+Test audio playback storage 
+
+Verify Chatwoot dashboard entries 
+
+Run 3-user pilot (Teacher/Admin/Support) 
+
+Document test results 
+

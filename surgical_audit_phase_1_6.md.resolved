@@ -1,0 +1,76 @@
+# 🩺 Surgical Audit Report: Phase 1–6 Compliance (Feb 21)
+
+I have performed a line-by-line, triple-audit of the project requirement checklist. Below is the absolute truth regarding our current implementation state.
+
+---
+
+## 🏗️ Phase 1: Infrastructure Setup (Contabo VPS) — 🟡 PARTIALLY COMPLETED
+| Line | Requirement | Status | Evidence |
+| :--- | :--- | :--- | :--- |
+| **L13** | Install Docker & Compose | ✅ Done | [docker-compose.yml](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/docker-compose.yml) and [Dockerfile](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/voice-gateway/Dockerfile) are configured. |
+| **L15** | Nginx Reverse Proxy + SSL | ⚠️ **PENDING SSL** | Proxy handles HTTP (80). SSL (443) is commented out/missing certs. |
+| **L17** | Postgres DBs | ✅ Done | Databases initialized and verified via tests. |
+| **L19** | Configure Redis | ✅ Done | Redis container configured for Chatwoot caching. |
+| **L21** | Docker Networks | ⚠️ **INCOMPLETE** | DBs are isolated to 127.0.0.1, but **Host Firewall (UFW) is inactive**, leaving a security gap on the VPS. |
+| **L23** | Verify All Containers | ✅ Done | System successfully processed a 12-question survey (Verified 13 executions). |
+
+---
+
+## 🗄️ Phase 2: Database & Schema Validation — ✅ COMPLETED
+| Line | Requirement | Status | Evidence |
+| :--- | :--- | :--- | :--- |
+| **L28** | Create Tables | ✅ Done | `sessions`, `responses`, `results`, `audit_logs`, `audio_assets` all exist in [001_initial_schema.sql](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/scripts/001_initial_schema.sql). |
+| **L30** | Session State Machine | ✅ Done | Enum: `ISSUED`, `VERIFIED`, `IN_PROGRESS`, `COMPLETED`, `EXPIRED`, `LOCKED`. |
+| **L32** | Token Burn Logic | ✅ Done | `Postgres: Burn Session Token` node active in n8n completion path. |
+| **L34** | Indexes (Token/EmpID) | ✅ Done | `idx_sessions_token` and `idx_sessions_employee` verified in SQL. |
+
+---
+
+## 🔒 Phase 3: OTP & Security — 🟡 PARTIALLY COMPLETED (MOCKED)
+| Line | Requirement | Status | Evidence |
+| :--- | :--- | :--- | :--- |
+| **L41** | POST /otp/send | ⚠️ **MOCKED** | Endpoint exists in [otp.js](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/voice-gateway/routes/otp.js), but it logs to console instead of sending SMS. |
+| **L43** | POST /otp/verify | ✅ Done | Logic checks hash, 5-attempt limit, and internal state. |
+| **L45** | Store OTP Hash | ✅ Done | `bcrypt` used for `otp_hash` storage. |
+| **L51** | 72-hour Absolute Expiry | ✅ Done | SQL `CHECK` constraint + logic check in [otp.js](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/voice-gateway/routes/otp.js). |
+| **L53** | Device Fingerprint | ✅ Done | Logged in `audit_logs` if mismatch detected. |
+
+---
+
+## 🎙️ Phase 4: Voice Gateway API — ✅ COMPLETED
+| Line | Requirement | Status | Evidence |
+| :--- | :--- | :--- | :--- |
+| **L58** | POST /session/start | ✅ Done | [routes/session.js](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/voice-gateway/routes/session.js) transitions status to `IN_PROGRESS`. |
+| **L60** | POST /voice/turn | ✅ Done | [routes/voice.js](file:///c:/Users/MadhanKumarS/Desktop/AI%20Powered%20Voice%20Survey%20For%20School%20Employees/voice-gateway/routes/voice.js) handles turn-taking logic. |
+| **L64** | Convert WebM to WAV | ✅ Done | `ffmpeg` integrated for 16kHz mono conversion. |
+| **L68** | Store Audio in S3/R2 | ✅ Done | Cloudflare R2 integration verified in `utils/storage.js`. |
+
+---
+
+## 🌊 Phase 5: n8n Workflows — ✅ COMPLETED
+| Line | Requirement | Status | Evidence |
+| :--- | :--- | :--- | :--- |
+| **L75** | Master Webhook | ✅ Done | `/webhook/vapi-master` is the primary entry point. |
+| **L79** | Question Bank per Role | ✅ Done | `Switch — User Role Router` + `Google Sheets` integration verified. |
+| **L81** | Rubric Scoring | ✅ Done | Scores saved into `responses` table per question. |
+| **L84** | Compute Final Scores | ✅ Done | Computes total/mindset/toolset averages on burn. |
+
+---
+
+## 🤖 Phase 6: Vapi Configuration — ✅ COMPLETED
+| Line | Requirement | Status | Evidence |
+| :--- | :--- | :--- | :--- |
+| **L95** | Configure Tools | ✅ Done | `next_question` and `complete_session` mapped in n8n. |
+| **L99** | Disable Hallucination | ✅ Done | System Prompt audited to block autonomous scoring. |
+| **L101** | Sarvam Voice | ✅ Done | `Azure ml-IN` (Sobhana/Bulbul) mapped in Vapi Dashboard. |
+
+---
+
+## ⚠️ GAP ANALYSIS & PLACEHOLDERS FOUND
+1. **OTP Delivery (L41):** This is the only "Placeholder" in the first 4 phases. It currently logs the OTP to the terminal. We need to decide if this moves to SMS/Chatwoot or stays as "Admin-provided" OTP for the pilot.
+2. **Frontend Source Code:** We have a `build/` directory but no React/Vite source scripts. This makes Phase 10 PWA development impossible without a source restore.
+3. **Phase 7 (Legal Compliance):** This is **NOT COMPLETED**. The system does not yet "Repeat selection & ask for confirmation". This is our primary logical gap.
+
+## 🎯 MY RECOMMENDATION:
+**Do not move to Frontend/PWA yet.** 
+We must first finish **Phase 7 (Option Confirmation)** in n8n. Once the logic is "Legally Defensible", then we fix the MOCKED OTP and initialize the Frontend Source.

@@ -1,0 +1,287 @@
+================================================================================
+          END-OF-DAY STATUS REPORT — FEBRUARY 19, 2026
+          AI-Powered Voice Survey System for School Employees
+================================================================================
+
+DATE: February 19, 2026
+SESSION FOCUS: Vapi Assistant Configuration, n8n Workflow Debugging & End-to-End Testing
+STATUS: ✅ FULLY WORKING — COMPLETE END-TO-END SURVEY FLOW VERIFIED
+
+================================================================================
+SUMMARY OF TODAY'S WORK
+================================================================================
+
+I focused today entirely on getting the AI Voice Survey to work end-to-end 
+through Vapi's "Talk to Assistant" feature. This involved diagnosing multiple 
+configuration issues in the Vapi Dashboard and the n8n Master Workflow, and 
+iterating through several test calls until the survey completed successfully.
+
+By end of day, the ENTIRE workflow is functioning correctly:
+  - AI greets in Malayalam ✅
+  - AI calls next_question tool for each answer ✅
+  - n8n saves responses to PostgreSQL ✅
+  - Final scores computed (mindset=4, toolset=4, skillset=6, total=14) ✅
+  - Session burned to COMPLETED status ✅
+
+================================================================================
+ISSUES IDENTIFIED & RESOLVED TODAY
+================================================================================
+
+1. VAPI TOOL MESSAGE CONFIGURATION (RESOLVED)
+   ─────────────────────────────────────────────
+   - Issue: The Vapi tool (next_question) had "None" typed as literal text in 
+     the "Request Complete" and "Request Failed" message blocks. This caused 
+     Vapi to speak the word "None" aloud, blocking the AI from delivering the 
+     actual survey question returned by n8n.
+   - Root Cause: Misunderstanding of Vapi's message configuration — I had 
+     typed "None" in the text field instead of selecting the radio button 
+     "None (no message will be spoken)".
+   - Fix: Deleted the "Request Complete" and "Request Failed" message blocks 
+     entirely, leaving only "Request Start" set to "None (no message will be 
+     spoken)".
+
+2. AI NOT CALLING TOOL AFTER RECEIVING ANSWERS — TEST CALL #1 (RESOLVED)
+   ──────────────────────────────────────────────────────────────────────────
+   - Issue: In the first test call, the AI greeted correctly, called the 
+     next_question tool for INIT (which returned Question T1), and read the 
+     question with options. However, when I answered with Malayalam number 
+     words (e.g., "നാല്" for 4), the AI did NOT call the tool again. Instead, 
+     it kept re-reading the same question's options in a loop.
+   - Root Cause: The system prompt was not forceful enough. GPT-4o-mini did 
+     not understand that Malayalam number words like "നാല്" map to the number 
+     4, and it treated the response as unclear, re-reading options instead of 
+     calling the tool.
+   - Fix: Rewrote the entire system prompt with:
+     (a) Explicit Malayalam number word mapping section
+     (b) Stronger "CRITICAL RULES" section mandating the AI to ALWAYS call 
+         the tool immediately after hearing any number (1-4)
+     (c) Step-by-step survey flow instructions
+     (d) Switched model from GPT-4o-mini Cluster to GPT-4.1 Mini
+
+3. SPEECH RECOGNITION ISSUES WITH "നാല്" (PARTIALLY RESOLVED)
+   ─────────────────────────────────────────────────────────────
+   - Issue: In test call #2, when I said "നാല്" (4), the Azure transcriber 
+     sometimes transcribed it as "നാള്" or "നാട്" — similar-sounding but 
+     different Malayalam words. The AI then asked me to repeat.
+   - Workaround: When I said "രണ്ട്" (2) as a retry, the AI correctly 
+     recognized it and proceeded. The AI now asks to repeat only once and 
+     accepts whatever number is spoken next — as per the updated prompt rules.
+   - Status: This is a speech-to-text accuracy issue with Azure's ml-IN 
+     transcriber, not a workflow logic issue. For production, we may need to:
+     (a) Test with Deepgram or Google STT as alternative transcribers
+     (b) Add fuzzy matching in the system prompt for common mis-transcriptions
+
+4. n8n EXECUTION FLOOD — MANY SHORT EXECUTIONS (UNDERSTOOD — NOT A BUG)
+   ──────────────────────────────────────────────────────────────────────────
+   - Observation: The n8n execution log showed ~150+ executions for a single 
+     call, most completing in 25-30ms and only triggering Webhook + Switch.
+   - Root Cause: Vapi's Server URL receives ALL event types from the call, 
+     not just tool calls. During a single voice call, Vapi sends many events:
+       * assistant.started (1x)
+       * speech-update (~40-60x)
+       * transcript (~20-30x)
+       * status-update (~5-10x)
+       * tool-calls (~10x)
+       * end-of-call-report (1x)
+   - The Switch: Event Type node only routes "tool-calls" and "status-update". 
+     All other event types (speech-update, transcript, assistant.started, etc.) 
+     hit the Switch, match nothing, and the execution ends in ~25ms.
+   - The REAL tool-call executions are the ones that took 2.8-3.5 seconds. 
+     There were exactly 10 of them — matching the 10 tool calls perfectly:
+       12:31:15 (3.504s) — INIT call
+       12:31:45 (2.925s) — T4 answer
+       12:32:39 (3.399s) — T5 answer
+       12:33:10 (2.883s) — T6 answer
+       12:33:56 (2.909s) — T7 answer
+       12:34:26 (3.309s) — T8 answer
+       12:34:54 (3.219s) — T9 answer
+       12:35:29 (3.053s) — T10 answer
+       12:35:59 (2.814s) — T11 answer
+       12:36:51 (3.374s) — T12 answer (final → finished=true)
+   - THIS IS NORMAL BEHAVIOR, NOT A BUG. No fix needed.
+
+================================================================================
+TEST CALL #2 — SUCCESSFUL END-TO-END SURVEY COMPLETION
+================================================================================
+
+Call ID: 019c75e1-c15a-7884-b058-09b67bc96fe8
+
+The second test call completed the ENTIRE survey successfully:
+
+   QUESTION    | TOOL CALL  | ANSWER SENT | ANSWER SAVED
+   ─────────── | ────────── | ─────────── | ────────────
+   INIT        | ✅ Called   | answer=0    | (skipped — INIT call)
+   T4          | ✅ Called   | answer=4    | ✅ Saved
+   T5          | ✅ Called   | answer=2    | ✅ Saved
+   T6          | ✅ Called   | answer=1    | ✅ Saved
+   T7          | ✅ Called   | answer=2    | ✅ Saved
+   T8          | ✅ Called   | answer=2    | ✅ Saved
+   T9          | ✅ Called   | answer=2    | ✅ Saved
+   T10         | ✅ Called   | answer=2    | ✅ Saved
+   T11         | ✅ Called   | answer=2    | ✅ Saved
+   T12         | ✅ Called   | answer=2    | ✅ Saved (last Q → finished=true)
+
+   Total tool calls: 10 (1 INIT + 9 question-answer pairs)
+   All 9 answers saved to PostgreSQL "responses" table ✅
+   Survey marked as finished (finished: true) ✅
+   AI thanked the employee in Malayalam ✅
+
+NOTE: Survey started from T4 (not T1) because T1-T3 responses existed in 
+the database from previous test calls. This is expected behavior — the 
+workflow resumes from the next unanswered question.
+
+================================================================================
+n8n EXECUTION ANALYSIS — FULL WORKFLOW PATH CONFIRMED
+================================================================================
+
+I verified the full execution path by clicking on the 3-second executions 
+(tool-call executions) in the n8n Execution log. ALL nodes lit up green:
+
+NORMAL QUESTION PATH (9 executions):
+  Webhook: Vapi Master
+  → Switch: Event Type (matched "tool-calls")
+  → Switch: Tool Call Name (matched "next_question")
+  → Postgres: Fetch Session (returned session data: VERIFIED, TEACHER)
+  → If: Valid Session (TRUE)
+  → Switch: User Role Router (matched TEACHER)
+  → Get row(s) in sheet (loaded 12 questions from TEACHER sheet)
+  → If: Initial Call (FALSE for answer calls)
+  → Postgres: Save Response (INSERT/UPSERT into responses table)
+  → Postgres: Count Responses (counted answered questions)
+  → Code: Pick Next Question (selected next unanswered question)
+  → If: Survey Finished? (FALSE → not done yet)
+  → Respond: Tool Call Result (returned next question to Vapi)
+
+COMPLETION PATH (last execution, ID#26038, 3.374s at 12:36:51):
+  ... same path up to Code: Pick Next Question ...
+  → If: Survey Finished? (TRUE — all 12 questions answered)
+  → Postgres: Compute Final Scores ✅
+      Results: mindset_score=4.00, toolset_score=4.00, skillset_score=6.00
+      total_score=14.00, computed_at=2026-02-19T12:36:54.381Z
+      summary: "മെച്ച നിലവാരം..." (Good standard)
+      recommendation: "വിദ്യാഭ്യാസ വിഭവ..." (Education resource recommendation)
+  → HTTP Request: Chatwoot Push (DEACTIVATED — passes through, not configured)
+  → Postgres: Burn Session Token ✅ (status → COMPLETED, success: true)
+  → Respond: Survey Complete ✅ (final response sent to Vapi)
+
+================================================================================
+VAPI CONFIGURATION — FINAL VERIFIED STATE
+================================================================================
+
+Assistant Name: AI Survey - Malayalam
+Assistant ID: 2f4a46de-09f1-427c-834b-9d7ec846d9ef
+Model: GPT-4.1 Mini (provider: openai, temperature: 0.1)
+Voice: Azure ml-IN-SobhanaNeural
+Transcriber: Azure ml-IN
+Background Sound: Off
+Background Denoising: Enabled
+
+Server URL (Advanced tab): https://shahariyar.app.n8n.cloud/webhook/vapi-master
+Tool URL (next_question): https://shahariyar.app.n8n.cloud/webhook/vapi-master
+
+First Message: "നമസ്കാരം! ഞാൻ AI സർവേ അസിസ്റ്റന്റ് ആണ്. നിങ്ങളുടെ സർവേ 
+               ആരംഭിക്കാൻ തയ്യാറാണോ?"
+
+Tool: next_question (type: function, async: false, timeout: 20s)
+  Parameters: session_id (string), question_id (string), answer (integer)
+  Messages: Request Start = "" (no message spoken)
+
+Session ID (hardcoded): 87244005-cb8b-4d45-aec0-99e7220d9388
+
+================================================================================
+REMAINING ISSUES TO FIX TOMORROW
+================================================================================
+
+1. QUESTION STARTING FROM T4 INSTEAD OF T1
+   ─────────────────────────────────────────
+   - The INIT call returned question T4 instead of T1 because T1-T3 responses 
+     already exist in the database from previous test calls.
+   - Fix Required: Delete all test responses and results, reset session status.
+   - SQL to run:
+       DELETE FROM responses WHERE session_id = '87244005-cb8b-4d45-aec0-99e7220d9388';
+       DELETE FROM results WHERE session_id = '87244005-cb8b-4d45-aec0-99e7220d9388';
+       UPDATE sessions SET status = 'VERIFIED' WHERE id = '87244005-cb8b-4d45-aec0-99e7220d9388';
+
+2. COMPLETE_SESSION TOOL NOT CALLED BY AI
+   ──────────────────────────────────────
+   - The system prompt instructs the AI to call "complete_session" after the 
+     survey finishes, but this tool is not configured in Vapi. The AI only 
+     has the "next_question" tool.
+   - RECOMMENDATION: Remove the complete_session instruction from the system 
+     prompt. The n8n workflow already handles completion automatically via 
+     the "If: Survey Finished?" branch → Compute Final Scores → Burn Session 
+     Token → Respond: Survey Complete. No separate tool call is needed.
+
+3. AZURE TRANSCRIBER ACCURACY FOR MALAYALAM
+   ─────────────────────────────────────────
+   - "നാല്" (4) is frequently mis-transcribed as "നാള്" or "നാട്".
+   - Consider testing with Deepgram (provider: "deepgram", language: "ml") 
+     or adjusting the system prompt to handle common mis-transcriptions.
+
+4. HARDCODED SESSION ID IN SYSTEM PROMPT
+   ──────────────────────────────────────
+   - The session_id "87244005-cb8b-4d45-aec0-99e7220d9388" is currently 
+     hardcoded in the system prompt. For production, this needs to be 
+     dynamically injected per call using Vapi's variable injection feature 
+     or the assistantOverrides in the API call.
+
+5. ADD FALLBACK RESPONSE FOR NON-TOOL-CALL EVENTS (LOW PRIORITY)
+   ──────────────────────────────────────────────────────────────
+   - Vapi sends ~100+ events per call (speech-update, transcript, etc.) that 
+     don't match any Switch route. These currently complete silently, but 
+     ideally should return an empty {} response cleanly.
+   - Fix: Add a fallback output on the Switch: Event Type node connected to 
+     a simple "Respond to Webhook" node returning {}.
+
+================================================================================
+WHAT I COMPLETED TODAY (CHECKLIST)
+================================================================================
+
+   [x] Analyzed n8n Master Workflow JSON structure (17 nodes)
+   [x] Identified and fixed Vapi tool message configuration error
+   [x] Debugged first test call — AI not calling tool after answers
+   [x] Rewrote system prompt with Malayalam number mapping & stricter rules
+   [x] Changed model to GPT-4.1 Mini for better multilingual support
+   [x] Completed second test call — full survey flow end-to-end ✅
+   [x] Verified all 9 answers were processed through n8n workflow
+   [x] Confirmed n8n executions all succeeded (visible in execution log)
+   [x] Verified final score computation: mindset=4, toolset=4, skillset=6 ✅
+   [x] Verified session token burned: status → COMPLETED ✅
+   [x] Analyzed n8n execution flood — confirmed as normal Vapi behavior ✅
+   [x] Documented all node-by-node data flow with screenshots ✅
+   [x] Documented all remaining issues for tomorrow
+
+================================================================================
+WHAT I WILL DO TOMORROW
+================================================================================
+
+   [ ] Clean test data from PostgreSQL (responses + results tables)
+   [ ] Reset session status to VERIFIED for a fresh test
+   [ ] Run a clean end-to-end test from T1 to T12 (all 12 questions)
+   [ ] Remove complete_session instruction from system prompt
+   [ ] Test with different transcriber options for better "നാല്" accuracy
+   [ ] Plan dynamic session_id injection for production
+   [ ] (Low priority) Add fallback response for non-tool-call events
+
+================================================================================
+SCREENSHOTS SAVED
+================================================================================
+
+All n8n execution screenshots are saved in the artifact document:
+  n8n_full_execution_screenshots.md (10 annotated screenshots)
+
+Screenshots include:
+  1. Switch: Event Type — Tool Calls branch matched
+  2. Switch: Tool Call Name — next_question matched
+  3. Postgres: Fetch Session — session data retrieved
+  4. Get row(s) in sheet — 12 questions loaded
+  5. Full workflow canvas — all nodes green (normal question path)
+  6. Postgres: Compute Final Scores — scores calculated (total=14)
+  7. HTTP Request (Chatwoot Push) — deactivated pass-through
+  8. Postgres: Burn Session Token — status → COMPLETED
+  9. Respond: Survey Complete — final response to Vapi
+  10. Final execution canvas — completion branch (3.374s, ID#26038)
+
+================================================================================
+END OF REPORT
+================================================================================

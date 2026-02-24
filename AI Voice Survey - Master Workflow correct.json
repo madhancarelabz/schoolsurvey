@@ -1,0 +1,830 @@
+{
+  "name": "AI Voice Survey - Master Workflow correct",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "1c8bb841-6c3d-4658-95d7-1338ba5763d5",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -800,
+        -368
+      ],
+      "id": "58beb36a-e486-410c-95e1-df0b8e68c213",
+      "name": "Webhook: Vapi Master",
+      "webhookId": "1c8bb841-6c3d-4658-95d7-1338ba5763d5"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.message.type }}",
+                    "rightValue": "tool-calls",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "3794879e-0bf9-43fc-b99d-f38af30cd535"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Tool Calls"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f2ca3021-dc59-4913-83b8-636dbb07acc3",
+                    "leftValue": "={{ $json.body.message.type }}",
+                    "rightValue": "status-update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Status Updates"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -608,
+        -224
+      ],
+      "id": "8b4607ba-922a-4231-b90b-3e2aadbb28f4",
+      "name": "Switch: Event Type"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.message.toolCalls[0].function.name }}",
+                    "rightValue": "next_question",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "692771b7-1b0d-452e-9092-968a82104e8c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Next Question"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "29db7965-2f66-49cd-ab93-5368ae1c3ab5",
+                    "leftValue": "={{ $json.body.message.toolCalls[0].function.name }}",
+                    "rightValue": "complete_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Complete Session"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -320,
+        -256
+      ],
+      "id": "b7928d57-4b63-41b8-8c5e-7f94530e516e",
+      "name": "Switch: Tool Call Name"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    id AS session_id, \n    employee_id, \n    status, \n    role,\n    (created_at > NOW() - INTERVAL '72 hours') AS is_fresh,\n    (status = 'VERIFIED' OR status = 'IN_PROGRESS') AS is_authorized\nFROM sessions \nWHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ [typeof $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments).session_id : $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -112,
+        -384
+      ],
+      "id": "3671c264-ab64-4957-baaf-e99a8efa6c63",
+      "name": "Postgres: Fetch Session",
+      "credentials": {
+        "postgres": {
+          "id": "RLWnNYbHUdODA2hb",
+          "name": "n8n to cantabo pvs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7af3bbc1-87f2-48ff-b819-dafd6a6d7e32",
+              "leftValue": "={{ $node[\"Postgres: Fetch Session\"].json.is_fresh }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "2224cc00-07d2-41d9-b290-055b8b22dc27",
+              "leftValue": "={{ $node[\"Postgres: Fetch Session\"].json.is_authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        64,
+        -464
+      ],
+      "id": "54a7df93-ab48-4c8d-9219-66100b2e13c2",
+      "name": "If: Valid Session?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].id }}\",\n      \"result\": \"Your session has expired or is unauthorized. Please re-authenticate.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        240,
+        -112
+      ],
+      "id": "df59245b-e94c-4e38-951a-dce739bea2aa",
+      "name": "Respond: Session Invalid"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $node[\"Postgres: Fetch Session\"].json.role }}",
+                    "rightValue": "TEACHER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "bf752db7-72dc-41fb-aeb3-2aebee48240a"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TEACHER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "76569b83-df59-4d54-90b3-85701ee3e7aa",
+                    "leftValue": "={{ $node[\"Postgres: Fetch Session\"].json.role }}",
+                    "rightValue": "ADMIN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ADMIN"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0b424c72-8611-465c-83ff-788fde38a35e",
+                    "leftValue": "={{ $node[\"Postgres: Fetch Session\"].json.role }}",
+                    "rightValue": "SUPPORT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SUPPORT"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        -432
+      ],
+      "id": "4ae4f1d2-3eb3-42e3-ae4b-68e6f6233def",
+      "name": "Switch — User Role Router"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1KXMyUry5junQhezuQzBv3zPPXFnLWeapoXz3SdpRbks",
+          "mode": "list",
+          "cachedResultName": "AI Voice Survey - Master Question Bank",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KXMyUry5junQhezuQzBv3zPPXFnLWeapoXz3SdpRbks/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $(\"Postgres: Fetch Session\").first().json.role }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        528,
+        -416
+      ],
+      "id": "2d258bda-0aa8-4a73-8e22-8d0c25978ffc",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7eGOO6vO6zNekj2L",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*)::int AS answer_count \nFROM responses \nWHERE session_id = $1;",
+        "options": {
+          "queryReplacement": "=={{ $(\"Postgres: Fetch Session\").first().json.session_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1088,
+        -416
+      ],
+      "id": "317d9094-7447-47ef-84a8-d4e6146d83d4",
+      "name": "Postgres: Count Responses",
+      "credentials": {
+        "postgres": {
+          "id": "RLWnNYbHUdODA2hb",
+          "name": "n8n to cantabo pvs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get total answers and question bank\nconst answersCount = $(\"Postgres: Count Responses\").first().json.answer_count;\nconst questions = $(\"Get row(s) in sheet\").all().map(item => item.json);\n\n// 2. CLINICAL RECTIFICATION: Correct path includes \".body\"\nconst sessionId = $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.session_id;\n\n// 3. Logic: If Survey is Finished (Line 84)\nif (answersCount >= questions.length) {\n  return [{\n    json: {\n      finished: true,\n      session_id: sessionId,\n      message: \"നിങ്ങളുടെ സർവേ വിജയകരമായി പൂർത്തിയായിരിക്കുന്നു. നന്ദി.\"\n    }\n  }];\n}\n\n// 4. Logic: Pick Next Question\nconst nextQuestion = questions[answersCount];\n\nreturn [{\n  json: {\n    finished: false,\n    session_id: sessionId,\n    question_id: nextQuestion.question_id,\n    question_text: nextQuestion.question_ml,\n    options: [\n      nextQuestion.opt1,\n      nextQuestion.opt2,\n      nextQuestion.opt3,\n      nextQuestion.opt4\n    ]\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -416
+      ],
+      "id": "821b91aa-59e2-41ca-8c90-154e929fdbf3",
+      "name": "Code: Pick Next Question"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].id }}\",\n      \"result\": {{ JSON.stringify($node[\"Code: Pick Next Question\"].json) }}\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1600,
+        -272
+      ],
+      "id": "3ce7c9eb-7478-47eb-a805-6fb9af02aadb",
+      "name": "Respond: Tool Call Result"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO responses (session_id, question_id, selected_option, category, score, confirmed)\nVALUES ($1, $2, $3, $4, $5, TRUE)\nON CONFLICT (session_id, question_id) \nDO UPDATE SET \n    selected_option = EXCLUDED.selected_option, \n    category = EXCLUDED.category,\n    score = EXCLUDED.score,\n    confirmed = TRUE,\n    answered_at = NOW();",
+        "options": {
+          "queryReplacement": "=={{ $(\"Postgres: Fetch Session\").first().json.session_id }}, {{ $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.question_id }}, {{ $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.answer }}, {{ $(\"Get row(s) in sheet\").all().find(q => q.json.question_id === $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.question_id)?.json.category }}, {{ ($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.answer || 0) - 1 }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        864,
+        -288
+      ],
+      "id": "bf9eb1ab-1372-4034-8a1e-f08a437b1bcf",
+      "name": "Postgres: Save Response",
+      "credentials": {
+        "postgres": {
+          "id": "RLWnNYbHUdODA2hb",
+          "name": "n8n to cantabo pvs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e0c4185e-aa2e-4f20-a154-3b73bec9e7a9",
+              "leftValue": "={{ $node[\"Code: Pick Next Question\"].json.finished }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1440,
+        -448
+      ],
+      "id": "38cc386a-0ee6-405f-bc50-682779580775",
+      "name": "If: Survey Finished?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO results (session_id, mindset_score, toolset_score, skillset_score, total_score, summary, recommendation)\nSELECT \n    session_id,\n    SUM(CASE WHEN category = 'Mindset' THEN score ELSE 0 END) as m_score,\n    SUM(CASE WHEN category = 'Toolset' THEN score ELSE 0 END) as t_score,\n    SUM(CASE WHEN category = 'Skillset' THEN score ELSE 0 END) as s_score,\n    SUM(score) as tot,\n    -- Deterministic Summary (Line 81)\n    CASE \n        WHEN SUM(score) >= 24 THEN 'മികച്ച പ്രകടനം. ഡിജിറ്റൽ ബോധവൽക്കരണത്തിൽ താങ്കൾ മുന്നിലാണ്.'\n        WHEN SUM(score) >= 12 THEN 'നല്ല നിലവാരം. ചില മേഖലകളിൽ കൂടുതൽ ശ്രദ്ധ ആവശ്യമാണ്.'\n        ELSE 'പ്രാഥമിക ഘട്ടം. പരിശീലന പരിപാടികളിൽ പങ്കെടുക്കുന്നത് നന്നായിരിക്കും.'\n    END as summary_txt,\n    -- Deterministic Recommendation\n    CASE \n        WHEN SUM(score) >= 24 THEN 'തുടർന്നും ഈ മികവ് നിലനിർത്തുക.'\n        ELSE 'ഡിജിറ്റൽ സ്കിൽ വർദ്ധിപ്പിക്കാനുള്ള വർക്ക്ഷോപ്പുകളിൽ പങ്കെടുക്കുക.'\n    END as rec_txt\nFROM responses\nWHERE session_id = $1\nGROUP BY session_id\nON CONFLICT (session_id) DO UPDATE SET\n    mindset_score = EXCLUDED.mindset_score,\n    toolset_score = EXCLUDED.toolset_score,\n    skillset_score = EXCLUDED.skillset_score,\n    total_score = EXCLUDED.total_score,\n    summary = EXCLUDED.summary,\n    recommendation = EXCLUDED.recommendation,\n    computed_at = NOW()\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1680,
+        -512
+      ],
+      "id": "e53c046f-e55b-417d-a527-d4d377073f33",
+      "name": "Postgres: Compute Final Scores",
+      "credentials": {
+        "postgres": {
+          "id": "RLWnNYbHUdODA2hb",
+          "name": "n8n to cantabo pvs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE sessions SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1 AND status != 'COMPLETED';",
+        "options": {
+          "queryReplacement": "={{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2032,
+        -528
+      ],
+      "id": "a8f2aeff-4e38-4253-b9d1-b2da57775345",
+      "name": "Postgres: Burn Session Token",
+      "credentials": {
+        "postgres": {
+          "id": "RLWnNYbHUdODA2hb",
+          "name": "n8n to cantabo pvs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].id }}\",\n      \"result\": {{ $(\"Code: Pick Next Question\").isExecuted ? JSON.stringify($(\"Code: Pick Next Question\").first().json) : JSON.stringify(\"Session completed successfully. Final scores computed and session token burned.\") }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2208,
+        -528
+      ],
+      "id": "d8a8a004-d60b-4177-9f92-0e576baadf3f",
+      "name": "Respond: Survey Complete"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a4bc5d74-08e0-4757-a82f-4c5686522a6f",
+              "leftValue": "={{ $(\"Webhook: Vapi Master\").item.json.body.message.toolCalls[0].function.arguments.question_id }}",
+              "rightValue": "INIT",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        688,
+        -432
+      ],
+      "id": "e70d48e9-2371-4a53-994d-7dcc23b1ead0",
+      "name": "If: Initial Call?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"ok\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -272,
+        -48
+      ],
+      "id": "17353273-eee4-4404-b464-583ed5fe2103",
+      "name": "Respond: Event Acknowledged"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === CHATWOOT CONFIGURATION ===\nconst API_TOKEN = 'MJxWqHUBFJNvRaR1v6bBA8wE';\nconst ACCOUNT_ID = '153238';\nconst INBOX_ID = '97309';\nconst BASE_URL = `https://app.chatwoot.com/api/v1/accounts/${ACCOUNT_ID}`;\nconst headers = { 'Content-Type': 'application/json', 'api_access_token': API_TOKEN };\n\n// === GET DATA FROM PREVIOUS NODES ===\nconst session = $node[\"Postgres: Fetch Session\"].json;\nconst scores = $node[\"Postgres: Compute Final Scores\"].json;\nconst employeeId = session.employee_id;\nconst role = session.role;\nconst sessionId = session.session_id;\n\ntry {\n  // 1. Create Contact\n  const contactRes = await fetch(`${BASE_URL}/contacts`, {\n    method: 'POST', headers,\n    body: JSON.stringify({ name: `Employee ${employeeId}`, identifier: employeeId })\n  });\n  const contact = await contactRes.json();\n  const contactId = contact.payload?.contact?.id || contact.payload?.id;\n\n  // 2. Create Conversation\n  const convoRes = await fetch(`${BASE_URL}/conversations`, {\n    method: 'POST', headers,\n    body: JSON.stringify({ contact_id: contactId, inbox_id: parseInt(INBOX_ID) })\n  });\n  const convo = await convoRes.json();\n  const convoId = convo.id;\n\n  // 3. Message 1: Employee Metadata (L125)\n  await fetch(`${BASE_URL}/conversations/${convoId}/messages`, {\n    method: 'POST', headers,\n    body: JSON.stringify({\n      content: `📋 Survey Report\\n👤 Employee: ${employeeId}\\n🏷️ Role: ${role}\\n🔑 Session: ${sessionId}\\n📅 Date: ${new Date().toLocaleDateString('en-IN')}`,\n      message_type: 'outgoing'\n    })\n  });\n\n  // 4. Message 2: Scores (L127)\n  await fetch(`${BASE_URL}/conversations/${convoId}/messages`, {\n    method: 'POST', headers,\n    body: JSON.stringify({\n      content: `📊 Scores\\n🧠 Mindset: ${scores.mindset_score}\\n🔧 Toolset: ${scores.toolset_score}\\n🎯 Skillset: ${scores.skillset_score}\\n📈 Total: ${scores.total_score}`,\n      message_type: 'outgoing'\n    })\n  });\n\n  // 5. Message 3: Summary + Recommendation (L129)\n  await fetch(`${BASE_URL}/conversations/${convoId}/messages`, {\n    method: 'POST', headers,\n    body: JSON.stringify({\n      content: `💡 Summary & Recommendation\\n📝 ${scores.summary}\\n🎓 ${scores.recommendation}`,\n      message_type: 'outgoing'\n    })\n  });\n\n  // 6. Apply Labels/Tags (L131)\n  const scoreTag = scores.total_score >= 24 ? 'high-performer' : scores.total_score >= 12 ? 'moderate' : 'needs-training';\n  await fetch(`${BASE_URL}/conversations/${convoId}/labels`, {\n    method: 'POST', headers,\n    body: JSON.stringify({ labels: [role.toLowerCase(), scoreTag, 'ai-survey'] })\n  });\n\n  return [{ json: { chatwoot_status: 'pushed', conversation_id: convoId } }];\n\n} catch (error) {\n  return [{ json: { chatwoot_status: 'failed', error: error.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -656
+      ],
+      "id": "d3f82be0-8ef8-4e68-8193-540c449ef326",
+      "name": "Chatwoot: Push Survey Report"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook: Vapi Master": {
+      "main": [
+        [
+          {
+            "node": "Switch: Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Event Type": {
+      "main": [
+        [
+          {
+            "node": "Switch: Tool Call Name",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Event Acknowledged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Event Acknowledged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Tool Call Name": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Fetch Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Postgres: Compute Final Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Fetch Session": {
+      "main": [
+        [
+          {
+            "node": "If: Valid Session?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Valid Session?": {
+      "main": [
+        [
+          {
+            "node": "Switch — User Role Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Session Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch — User Role Router": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Count Responses": {
+      "main": [
+        [
+          {
+            "node": "Code: Pick Next Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "If: Initial Call?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Pick Next Question": {
+      "main": [
+        [
+          {
+            "node": "If: Survey Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Save Response": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Count Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Survey Finished?": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Compute Final Scores",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Tool Call Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Compute Final Scores": {
+      "main": [
+        [
+          {
+            "node": "Chatwoot: Push Survey Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Burn Session Token": {
+      "main": [
+        [
+          {
+            "node": "Respond: Survey Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Initial Call?": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Count Responses",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Postgres: Save Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chatwoot: Push Survey Report": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Burn Session Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b1f5083b-e4c6-4981-a55e-6782cce3fd57",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0a606510a39546350ca950cb0bd9bb108927f2ed4772cdeaafdc6da681a3e8e1"
+  },
+  "id": "0YvZIvwYULFj8UQy",
+  "tags": []
+}

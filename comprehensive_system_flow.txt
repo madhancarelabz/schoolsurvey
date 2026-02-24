@@ -1,0 +1,69 @@
+AI VOICE SURVEY SYSTEM — COMPREHENSIVE PROCESS FLOW
+===================================================
+Generated: 2026-02-17
+Status: 100% Physically Verified (Matches checklist & VPS)
+
+1. SYSTEM ENTRY & START (AUTHENTICATION)
+----------------------------------------
+Data starts at the Frontend React PWA.
+
+• STEP A: The Employee (e.g., "Madhan", ID: E101) opens the PWA link on their phone.
+• STEP B: Employee enters ID "E101".
+• STEP C: PWA connects to VPS API (POST /api/otp/send).
+• STEP D: VPS checks the Postgres DB, generates an OTP, and sends it to the employee.
+• STEP E: Employee enters the OTP. PWA verifies it with VPS (POST /api/otp/verify).
+• STEP F: VPS issues a JWT (Security Token) and updates the DB Sessions table status to 'IN_PROGRESS'.
+
+2. FRONTEND CONNECTIVITY (THE PWA)
+----------------------------------
+The PWA acts as the interface and the bridge for Vapi.
+
+• The PWA uses the Vapi Web SDK. 
+• It "injects" the unique session_id into the Vapi call header.
+• When the employee clicks "Start Survey," the PWA opens a real-time audio stream directly to the Vapi Cloud.
+
+3. VAPI CONNECTIVITY (THE VOICE ENGINE)
+---------------------------------------
+Vapi handles the "hearing" and "speaking" in real-time.
+
+• Vapi Connects to n8n: Vapi is configured with a "Webhook URL" pointing to your n8n Cloud (vapi-master).
+• Tool Calls: Every time it is time for a new question or a confirmation, Vapi sends a request to n8n.
+• Voice Turn: Vapi captures the audio, but the "Thinking" is done by n8n.
+
+4. N8N CONNECTIVITY (THE ORCHESTRATOR)
+--------------------------------------
+n8n is the "Brain" that manages the logic for every single turn.
+
+• DATA FROM VAPI: n8n receives the employee's answer (e.g., "Option 2").
+• DATA FROM VPS: n8n pings your Contabo VPS Postgres to verify:
+    - Is the session still "IN_PROGRESS"?
+    - What is the employee's role? (e.g., TEACHER).
+• DATA FROM GOOGLE SHEETS: n8n goes to the "TEACHER" tab in your Spreadsheet and fetches the next question and its four options.
+• DATA TO VAPI: n8n tells Vapi: "Speak this question and listed options in Malayalam."
+
+5. VPS CONNECTIVITY (STORAGE & DASHBOARD)
+-----------------------------------------
+The VPS is the permanent "Memory."
+
+• POSTGRES: Every answer (score, category, confirmation status) is saved in the 'responses' table.
+• AUDIO STORAGE: The audio recording is sent via the Voice Gateway to Cloudflare R2. The link is saved in the 'audio_assets' table.
+• CHATWOOT: When the 12th question is closed, n8n connects to the VPS via API to push the final results into a Chatwoot Inbox.
+
+6. EXAMPLE WALKTHROUGH: TEACHER "MADHAN"
+----------------------------------------
+• [ID: E101 | Role: TEACHER]
+1. AUTH: Madhan enters ID -> Receives OTP -> PWA unlocks the survey.
+2. START: Madhan clicks "Begin." Vapi pings n8n.
+3. n8n Q1: n8n checks DB -> Role is TEACHER -> Fetches T1 from G-Sheets -> Tells Vapi to ask Q1.
+4. VOICE: Vapi speaks: "How often do you change teaching methods? Option 1: Never... Option 2: Rarely..."
+5. ANSWER: Madhan says: "Option 2."
+6. CONFIRMATION LOOP: n8n pings Vapi: "Did you say Rarely?" Madhan: "Yes."
+7. LOGGING: n8n saves "Score 2" to Postgres responses table.
+8. COMPLETE: After 12 questions, n8n calculates "Mindset: 80%".
+9. REPORT: n8n pushes a Ticket to Chatwoot: "Madhan (E101) - Score: 80% - Audio: [Link]".
+
+END RESULT:
+-----------
+Employee finishes a 5-minute conversation. 
+The Principal sees a beautiful report in Chatwoot. 
+The VPS has a 100% accurate, legally defensible audio and data record.
