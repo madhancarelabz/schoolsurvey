@@ -383,7 +383,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 1. Get total answers and question bank\nconst answersCount = $(\"Postgres: Count Responses\").first().json.answer_count;\nconst questions = $(\"Get row(s) in sheet\").all().map(item => item.json);\n\n// 2. CLINICAL RECTIFICATION: Correct path includes \".body\"\nconst sessionId = $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.session_id;\n\n// 3. Logic: If Survey is Finished (Line 84)\nif (answersCount >= questions.length) {\n  return [{\n    json: {\n      finished: true,\n      session_id: sessionId,\n      message: \"നിങ്ങളുടെ സർവേ വിജയകരമായി പൂർത്തിയായിരിക്കുന്നു. നന്ദി.\"\n    }\n  }];\n}\n\n// 4. Logic: Pick Next Question\nconst nextQuestion = questions[answersCount];\n\nreturn [{\n  json: {\n    finished: false,\n    session_id: sessionId,\n    question_id: nextQuestion.question_id,\n    question_text: nextQuestion.question_ml,\n    options: [\n      nextQuestion.opt1,\n      nextQuestion.opt2,\n      nextQuestion.opt3,\n      nextQuestion.opt4\n    ]\n  }\n}];"
+        "jsCode": "// 1. Get total answers and question bank\nconst answersCount = $(\"Postgres: Count Responses\").first().json.answer_count;\nconst questions = $(\"Get row(s) in sheet\").all().map(item => item.json);\n\n// 2. CLINICAL RECTIFICATION: Handle stringified arguments and correct path\nconst rawArgs = $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments;\nconst args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs;\nconst sessionId = args.session_id;\n\n// 3. Logic: If Survey is Finished\nif (answersCount >= questions.length) {\n  return [{\n    json: {\n      finished: true,\n      session_id: sessionId,\n      message: \"നിങ്ങളുടെ സർവേ വിജയകരമായി പൂർത്തിയായിരിക്കുന്നു. നന്ദി.\"\n    }\n  }];\n}\n\n// 4. Logic: Pick Next Question\nconst nextQuestion = questions[answersCount];\n\nreturn [{\n  json: {\n    finished: false,\n    session_id: sessionId,\n    question_id: nextQuestion.question_id,\n    question_text: nextQuestion.question_ml,\n    options: [\n      nextQuestion.opt1,\n      nextQuestion.opt2,\n      nextQuestion.opt3,\n      nextQuestion.opt4\n    ]\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -514,20 +514,6 @@
     },
     {
       "parameters": {
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [
-        1856,
-        -528
-      ],
-      "id": "7bc12191-3ff3-4bad-ae26-db44ad7d61a9",
-      "name": "HTTP Request (Chatwoot Push)",
-      "disabled": true
-    },
-    {
-      "parameters": {
         "respondWith": "json",
         "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].id }}\",\n      \"result\": {{ $(\"Code: Pick Next Question\").isExecuted ? JSON.stringify($(\"Code: Pick Next Question\").first().json) : JSON.stringify(\"Session completed successfully. Final scores computed and session token burned.\") }}\n    }\n  ]\n}",
         "options": {}
@@ -591,6 +577,19 @@
       ],
       "id": "03acb8ad-5900-48cc-abf1-e4708556506e",
       "name": "Respond: Event Acknowledged"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === CHATWOOT CONFIGURATION ===\nconst API_TOKEN = 'MJxWqHUBFJNvRaR1v6bBA8wE';\nconst ACCOUNT_ID = '153238';\nconst INBOX_ID = '97309';\nconst BASE_URL = `https://app.chatwoot.com/api/v1/accounts/${ACCOUNT_ID}`;\nconst headers = { 'Content-Type': 'application/json', 'api_access_token': API_TOKEN };\n\n// === GET DATA FROM PREVIOUS NODES ===\nconst session = $node[\"Postgres: Fetch Session\"].json;\nconst scores = $node[\"Postgres: Compute Final Scores\"].json;\nconst employeeId = session.employee_id;\nconst role = session.role;\nconst sessionId = session.session_id;\n\ntry {\n  // 1. Create Contact\n  const contactRes = await fetch(`${BASE_URL}/contacts`, {\n    method: 'POST', headers,\n    body: JSON.stringify({ name: `Employee ${employeeId}`, identifier: employeeId })\n  });\n  const contact = await contactRes.json();\n  const contactId = contact.payload?.contact?.id || contact.payload?.id;\n\n  // 2. Create Conversation\n  const convoRes = await fetch(`${BASE_URL}/conversations`, {\n    method: 'POST', headers,\n    body: JSON.stringify({ contact_id: contactId, inbox_id: parseInt(INBOX_ID) })\n  });\n  const convo = await convoRes.json();\n  const convoId = convo.id;\n\n  // 3. Message 1: Employee Metadata (L125)\n  await fetch(`${BASE_URL}/conversations/${convoId}/messages`, {\n    method: 'POST', headers,\n    body: JSON.stringify({\n      content: `📋 Survey Report\\n👤 Employee: ${employeeId}\\n🏷️ Role: ${role}\\n🔑 Session: ${sessionId}\\n📅 Date: ${new Date().toLocaleDateString('en-IN')}`,\n      message_type: 'outgoing'\n    })\n  });\n\n  // 4. Message 2: Scores (L127)\n  await fetch(`${BASE_URL}/conversations/${convoId}/messages`, {\n    method: 'POST', headers,\n    body: JSON.stringify({\n      content: `📊 Scores\\n🧠 Mindset: ${scores.mindset_score}\\n🔧 Toolset: ${scores.toolset_score}\\n🎯 Skillset: ${scores.skillset_score}\\n📈 Total: ${scores.total_score}`,\n      message_type: 'outgoing'\n    })\n  });\n\n  // 5. Message 3: Summary + Recommendation (L129)\n  await fetch(`${BASE_URL}/conversations/${convoId}/messages`, {\n    method: 'POST', headers,\n    body: JSON.stringify({\n      content: `💡 Summary & Recommendation\\n📝 ${scores.summary}\\n🎓 ${scores.recommendation}`,\n      message_type: 'outgoing'\n    })\n  });\n\n  // 6. Apply Labels/Tags (L131)\n  const scoreTag = scores.total_score >= 24 ? 'high-performer' : scores.total_score >= 12 ? 'moderate' : 'needs-training';\n  await fetch(`${BASE_URL}/conversations/${convoId}/labels`, {\n    method: 'POST', headers,\n    body: JSON.stringify({ labels: [role.toLowerCase(), scoreTag, 'ai-survey'] })\n  });\n\n  return [{ json: { chatwoot_status: 'pushed', conversation_id: convoId } }];\n\n} catch (error) {\n  return [{ json: { chatwoot_status: 'failed', error: error.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -656
+      ],
+      "id": "6ac5a6e0-ca5e-4a78-9181-fbb1fa535592",
+      "name": "Chatwoot: Push Survey Report"
     }
   ],
   "pinData": {},
@@ -769,7 +768,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request (Chatwoot Push)",
+            "node": "Chatwoot: Push Survey Report",
             "type": "main",
             "index": 0
           }
@@ -781,17 +780,6 @@
         [
           {
             "node": "Respond: Survey Complete",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "HTTP Request (Chatwoot Push)": {
-      "main": [
-        [
-          {
-            "node": "Postgres: Burn Session Token",
             "type": "main",
             "index": 0
           }
@@ -815,13 +803,24 @@
           }
         ]
       ]
+    },
+    "Chatwoot: Push Survey Report": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Burn Session Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "cc5caa11-bb63-46d0-835a-d2489204e036",
+  "versionId": "48305799-8f5b-4fdc-919d-809ca8a4ec4f",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0a606510a39546350ca950cb0bd9bb108927f2ed4772cdeaafdc6da681a3e8e1"
