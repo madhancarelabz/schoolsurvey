@@ -83,7 +83,7 @@ function SessionPage() {
             // Step 3: Start the voice call
             const sessionId = sessionStorage.getItem('survey_session_id');
             await vapi.start(VAPI_ASSISTANT_ID, {
-                metadata: { session_id: sessionId },
+                variableValues: { session_id: sessionId },
             });
 
         } catch (err) {
