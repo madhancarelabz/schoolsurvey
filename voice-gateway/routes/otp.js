@@ -29,9 +29,10 @@ router.post('/send', async (req, res) => {
             const sessionToken = Math.random().toString(36).substring(2, 15);
             const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
 
+            // TODO [PRODUCTION]: Replace hardcoded 'TEACHER' with actual role from employee registry or frontend selection
             const insertRes = await pool.query(
-                'INSERT INTO sessions (employee_id, session_token, expires_at) VALUES ($1, $2, $3) RETURNING *',
-                [employee_id, sessionToken, expiresAt]
+                'INSERT INTO sessions (employee_id, session_token, expires_at, role) VALUES ($1, $2, $3, $4) RETURNING *',
+                [employee_id, sessionToken, expiresAt, 'TEACHER']
             );
             session = insertRes.rows[0];
         } else {
