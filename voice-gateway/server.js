@@ -43,15 +43,37 @@ app.get('/health', async (req, res) => {
 
 // Start Server
 async function startServer() {
-  await redisClient.connect();
-  app.listen(port, () => {
-    console.log(`Voice Gateway listening on port ${port}`);
-  });
+  try {
+    // 1. Check Database (Fail fast if unreachable)
+    console.log('Testing database connection...');
+    await pool.query('SELECT 1');
+    console.log('PostgreSQL connected.');
+
+    // 2. Connect Redis
+    console.log('Connecting to Redis...');
+    await redisClient.connect();
+    console.log('Redis connected.');
+
+    // 3. Start Listening
+    app.listen(port, () => {
+      console.log(`Voice Gateway listening on port ${port}`);
+    });
+  } catch (err) {
+    console.error('CRITICAL: Failed to start server:', err);
+    process.exit(1);
+  }
 }
 
-startServer().catch(err => {
-  console.error('Failed to start server:', err);
+// Global error handlers for debugging
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
   process.exit(1);
 });
+
+startServer();
 
 module.exports = { redisClient };

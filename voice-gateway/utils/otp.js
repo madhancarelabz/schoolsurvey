@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 /**
  * Generates a random 6-digit numeric OTP.
@@ -8,7 +8,7 @@ function generateOTP() {
 }
 
 /**
- * Hashes an OTP using bcrypt.
+ * Hashes an OTP using bcryptjs.
  */
 async function hashOTP(otp) {
     const saltRounds = 10;
