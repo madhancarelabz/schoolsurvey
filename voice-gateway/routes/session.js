@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../server');
+const { pool } = require('../db'); // Fix: use standalone db module to avoid circular dependency
 const auth = require('../middleware/auth');
 
 /**

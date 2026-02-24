@@ -6,7 +6,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
-const { pool } = require('../server');
+const { pool } = require('../db'); // Fix: use standalone db module to avoid circular dependency
 const auth = require('../middleware/auth');
 const { uploadAudio } = require('../utils/storage');
 

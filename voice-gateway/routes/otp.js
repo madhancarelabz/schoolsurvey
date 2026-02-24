@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const { pool } = require('../server'); // We'll need to export pool from server.js
+const { pool } = require('../db'); // Fix: use standalone db module to avoid circular dependency
 const { generateOTP, hashOTP, compareOTP } = require('../utils/otp');
 
 /**

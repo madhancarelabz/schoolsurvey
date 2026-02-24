@@ -3,8 +3,8 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
-const { Pool } = require('pg');
 const { createClient } = require('redis');
+const { pool } = require('./db'); // Use shared pool from db.js (avoids circular dependency)
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,11 +14,6 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(morgan('combined'));
-
-// Database Pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 // Redis Client
 const redisClient = createClient({
@@ -59,4 +54,4 @@ startServer().catch(err => {
   process.exit(1);
 });
 
-module.exports = { pool, redisClient };
+module.exports = { redisClient };
