@@ -590,6 +590,49 @@
       ],
       "id": "6ac5a6e0-ca5e-4a78-9181-fbb1fa535592",
       "name": "Chatwoot: Push Survey Report"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e44d8b9e-1234-5678-90ab-cdef12345678",
+                    "leftValue": "={{ $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.name }}",
+                    "rightValue": "complete_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COMPLETE_SESSION"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        -600
+      ],
+      "id": "c62b9213-43f1-43e8-8db9-f67f5255476a",
+      "name": "Switch: Tool Action Branch"
     }
   ],
   "pinData": {},
@@ -641,7 +684,7 @@
         ],
         [
           {
-            "node": "Postgres: Compute Final Scores",
+            "node": "Postgres: Fetch Session",
             "type": "main",
             "index": 0
           }
@@ -663,7 +706,7 @@
       "main": [
         [
           {
-            "node": "Switch — User Role Router",
+            "node": "Switch: Tool Action Branch",
             "type": "main",
             "index": 0
           }
@@ -809,6 +852,24 @@
         [
           {
             "node": "Postgres: Burn Session Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Tool Action Branch": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Compute Final Scores",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch — User Role Router",
             "type": "main",
             "index": 0
           }
