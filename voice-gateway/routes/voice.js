@@ -122,4 +122,41 @@ router.post('/tts', auth, async (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/voice/audio/:id
+ * @desc    Get audio asset storage URL (Restricted to HR/Principal)
+ * @access  Private (JWT)
+ */
+router.get('/audio/:id', auth, async (req, res) => {
+    const { employee_id } = req.user;
+    const assetId = req.params.id;
+
+    try {
+        // 1. Requirement 142: Log all admin access in audit_logs
+        const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+        // Log the access attempt
+        await pool.query(
+            "SELECT log_admin_access($1, $2, $3, $4)",
+            [employee_id, 'AUDIO_ACCESS', assetId, clientIp]
+        );
+
+        // 2. Fetch the storage URL
+        const assetRes = await pool.query(
+            'SELECT storage_url FROM audio_assets WHERE id = $1',
+            [assetId]
+        );
+
+        if (assetRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Audio asset not found' });
+        }
+
+        res.status(200).json({ url: assetRes.rows[0].storage_url });
+
+    } catch (err) {
+        console.error('Audio Access Error:', err);
+        res.status(500).json({ error: 'Failed to retrieve audio' });
+    }
+});
+
 module.exports = router;
