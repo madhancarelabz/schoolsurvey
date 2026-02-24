@@ -414,7 +414,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO responses (session_id, question_id, selected_option, category, score, confirmed)\nVALUES ($1, $2, $3, $4, $5, TRUE)\nON CONFLICT (session_id, question_id) \nDO UPDATE SET \n    selected_option = EXCLUDED.selected_option, \n    category = EXCLUDED.category,\n    score = EXCLUDED.score,\n    confirmed = TRUE,\n    answered_at = NOW();",
         "options": {
-          "queryReplacement": "=={{ $(\"Postgres: Fetch Session\").first().json.session_id }}, {{ $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.question_id }}, {{ $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.answer }}, {{ $(\"Get row(s) in sheet\").all().find(q => q.json.question_id === $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.question_id)?.json.category }}, {{ ($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments.answer || 0) - 1 }}"
+          "queryReplacement": "={{ [ $(\"Postgres: Fetch Session\").first().json.session_id, (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).question_id, (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).answer, $(\"Get row(s) in sheet\").all().find(q => q.json.question_id === (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).question_id)?.json.category, ((typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).answer || 0) - 1 ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -471,7 +471,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO results (session_id, mindset_score, toolset_score, skillset_score, total_score, summary, recommendation)\nSELECT \n    session_id,\n    SUM(CASE WHEN category = 'Mindset' THEN score ELSE 0 END) as m_score,\n    SUM(CASE WHEN category = 'Toolset' THEN score ELSE 0 END) as t_score,\n    SUM(CASE WHEN category = 'Skillset' THEN score ELSE 0 END) as s_score,\n    SUM(score) as tot,\n    -- Deterministic Summary (Line 81)\n    CASE \n        WHEN SUM(score) >= 24 THEN 'മികച്ച പ്രകടനം. ഡിജിറ്റൽ ബോധവൽക്കരണത്തിൽ താങ്കൾ മുന്നിലാണ്.'\n        WHEN SUM(score) >= 12 THEN 'നല്ല നിലവാരം. ചില മേഖലകളിൽ കൂടുതൽ ശ്രദ്ധ ആവശ്യമാണ്.'\n        ELSE 'പ്രാഥമിക ഘട്ടം. പരിശീലന പരിപാടികളിൽ പങ്കെടുക്കുന്നത് നന്നായിരിക്കും.'\n    END as summary_txt,\n    -- Deterministic Recommendation\n    CASE \n        WHEN SUM(score) >= 24 THEN 'തുടർന്നും ഈ മികവ് നിലനിർത്തുക.'\n        ELSE 'ഡിജിറ്റൽ സ്കിൽ വർദ്ധിപ്പിക്കാനുള്ള വർക്ക്ഷോപ്പുകളിൽ പങ്കെടുക്കുക.'\n    END as rec_txt\nFROM responses\nWHERE session_id = $1\nGROUP BY session_id\nON CONFLICT (session_id) DO UPDATE SET\n    mindset_score = EXCLUDED.mindset_score,\n    toolset_score = EXCLUDED.toolset_score,\n    skillset_score = EXCLUDED.skillset_score,\n    total_score = EXCLUDED.total_score,\n    summary = EXCLUDED.summary,\n    recommendation = EXCLUDED.recommendation,\n    computed_at = NOW()\nRETURNING *;",
         "options": {
-          "queryReplacement": "={{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id }}"
+          "queryReplacement": "={{ [ (typeof $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments).session_id : $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id) ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -494,7 +494,7 @@
         "operation": "executeQuery",
         "query": "UPDATE sessions SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1 AND status != 'COMPLETED';",
         "options": {
-          "queryReplacement": "={{ $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id }}"
+          "queryReplacement": "={{ [ (typeof $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments).session_id : $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id) ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -539,7 +539,7 @@
           "conditions": [
             {
               "id": "a4bc5d74-08e0-4757-a82f-4c5686522a6f",
-              "leftValue": "={{ $(\"Webhook: Vapi Master\").item.json.body.message.toolCalls[0].function.arguments.question_id }}",
+              "leftValue": "={{ (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).question_id }}",
               "rightValue": "INIT",
               "operator": {
                 "type": "string",
