@@ -6,7 +6,7 @@ import { useRef, useEffect } from 'react';
  */
 function OtpInput({ value, onChange, disabled }) {
     const inputRefs = useRef([]);
-    const digits = value.padEnd(6, '').split('').slice(0, 6);
+    const digits = value.padEnd(6, ' ').split('').slice(0, 6);
 
     useEffect(() => {
         // Focus first empty input
