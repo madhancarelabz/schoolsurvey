@@ -17,6 +17,18 @@ router.post('/send', async (req, res) => {
     }
 
     try {
+        // 0. Look up employee in registry — validates employee exists and gets correct role
+        const empRes = await pool.query(
+            'SELECT role, name FROM employees WHERE employee_id = $1',
+            [employee_id]
+        );
+
+        if (empRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Employee ID not registered in the system' });
+        }
+
+        const employeeRole = empRes.rows[0].role;
+
         // 1. Check if an active session exists
         let sessionRes = await pool.query(
             'SELECT id, status FROM sessions WHERE employee_id = $1 AND status NOT IN ($2, $3, $4)',
@@ -25,14 +37,13 @@ router.post('/send', async (req, res) => {
 
         let session;
         if (sessionRes.rows.length === 0) {
-            // Create new session
+            // Create new session with role from employees table
             const sessionToken = Math.random().toString(36).substring(2, 15);
             const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
 
-            // TODO [PRODUCTION]: Replace hardcoded 'TEACHER' with actual role from employee registry or frontend selection
             const insertRes = await pool.query(
                 'INSERT INTO sessions (employee_id, session_token, expires_at, role) VALUES ($1, $2, $3, $4) RETURNING *',
-                [employee_id, sessionToken, expiresAt, 'TEACHER']
+                [employee_id, sessionToken, expiresAt, employeeRole]
             );
             session = insertRes.rows[0];
         } else {
