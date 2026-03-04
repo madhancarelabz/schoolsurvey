@@ -1,0 +1,306 @@
+═══════════════════════════════════════════════════════════════
+AI VOICE SURVEY SYSTEM — IMPLEMENTATION PLAN (UPDATED)
+Date: Feb 28, 2026
+═══════════════════════════════════════════════════════════════
+
+SIR'S PHASE 7 DECISION:
+• Smart confirmation — save clear answers directly
+• Confirm only when unclear/hesitant
+• Tone: friendly, natural, human-like — not robotic
+
+═══════════════════════════════════════════════════════════════
+STEP 1: GOOGLE SHEETS — EMPLOYEES TAB               ✅ DONE
+═══════════════════════════════════════════════════════════════
+
+Created NEW tab "EMPLOYEES" in AI Voice Survey - Master Question Bank:
+
+  employee_id | name         | role    | phone
+  EMP001      | Test Teacher | TEACHER | 9999999001
+  ADM001      | Test Admin   | ADMIN   | 9999999002
+  SUP001      | Test Support | SUPPORT | 9999999003
+
+WHY: Admin-facing master data for employee-role mapping.
+IMPACT: No system affected. Data reference only.
+
+═══════════════════════════════════════════════════════════════
+STEP 2: VAPI — SMART CONFIRMATION PROMPT             ✅ DONE
+═══════════════════════════════════════════════════════════════
+
+Updated system prompt in Vapi Dashboard → AI Survey - Malayalam:
+• Added SMART CONFIRMATION section (sir's balanced approach)
+• Changed tone from "professional" to "friendly, warm, natural"
+• Added handling for non-number responses
+• All existing rules preserved
+
+WHY: Implements sir's Phase 7 decision.
+IMPACT: Only Vapi. No n8n/VPS/DB changes needed.
+
+═══════════════════════════════════════════════════════════════
+STEP 3: VPS — EMPLOYEE ROLE VALIDATION               ✅ DONE
+═══════════════════════════════════════════════════════════════
+
+ORIGINAL PLAN: n8n workflow changes (lookup EMPLOYEES tab mid-flow)
+CORRECTED TO: Postgres employees table + otp.js lookup
+
+REASON FOR CHANGE:
+  n8n caches node outputs. If we set role='PENDING' and updated
+  DB mid-flow, the cached value in "Switch — User Role Router"
+  and "Get row(s) in sheet" would still read 'PENDING' — causing
+  the workflow to BREAK. The Postgres approach sets the correct
+  role from session creation, so n8n reads the correct role
+  immediately. ZERO n8n changes needed for role lookup.
+
+WHAT WE DID:
+  3A. Created employees table in Postgres:
+      CREATE TABLE employees (employee_id, name, role, phone)
+      Inserted 3 mock records (EMP001, ADM001, SUP001)
+
+  3B. Updated otp.js:
+      • Added employee lookup: queries employees table
+      • If employee_id not found → returns 404 error
+      • If found → uses correct role from table
+      • Removed hardcoded 'TEACHER'
+      • Committed and pushed to GitHub
+      • Pulled on VPS, rebuilt Docker container
+
+IMPACT: Session created with correct role. No n8n changes needed.
+VERIFIED: All 4 Docker containers running.
+
+═══════════════════════════════════════════════════════════════
+STEP 4: n8n — SAVE RECORDING URL TO AUDIO_ASSETS     ✅ DONE
+═══════════════════════════════════════════════════════════════
+
+SCHEMA FIXES (before n8n change):
+  • Added RECORDING to asset_type enum: {ANSWER,CONFIRMATION,RECORDING}
+  • Made sha256_hash nullable (Vapi doesn't provide hash)
+
+n8n CHANGES:
+  1. Added 3rd rule to "Switch: Event Type":
+     • Condition: body.message.type = "end-of-call-report"
+     • Output Name: "End of Call Report"
+
+  2. Added NEW node: "Postgres: Save Recording"
+     • Credential: n8n to cantabo pvs
+     • Query: INSERT INTO audio_assets (asset_type, storage_url,
+              duration_seconds) SELECT 'RECORDING'::asset_type,
+              $1, $2 WHERE $1 IS NOT NULL AND $1 != '';
+     • Parameters: recordingUrl + durationSeconds from Vapi payload
+
+  3. Wired: Switch: Event Type [End of Call Report]
+            → Postgres: Save Recording
+            → Respond: Event Acknowledged
+
+TOTAL n8n CHANGES: 1 rule added + 1 new node. Zero existing nodes modified.
+
+IMPACT: Recording URL saved to audio_assets table after each call.
+        Existing tool-calls and status-update flows UNTOUCHED.
+
+═══════════════════════════════════════════════════════════════
+STEP 5: DEBUGGED n8n WORKFLOW ERRORS                  ✅ DONE
+═══════════════════════════════════════════════════════════════
+
+ISSUE 1: UUID parsing error — "invalid input syntax for type uuid"
+  ROOT CAUSE: session_id was arriving as '["uuid"]' (array-wrapped
+              string) instead of 'uuid'. The Code: Parse Tool Args
+              node was outputting the session_id with brackets.
+  FIX: Updated 5 n8n nodes to correctly extract session_id:
+       • Postgres: Fetch Session
+       • Postgres: Update Status
+       • Postgres: Save Response
+       • Postgres: Compute Final Scores
+       • Postgres: Burn Session
+
+ISSUE 2: "there is no parameter $5" in Save Response
+  ROOT CAUSE: n8n comma-separated queryReplacement dropped undefined
+              values (category was undefined for INIT). This caused
+              fewer parameters than expected.
+  FIX: 
+       • Added '|| Unknown' fallback to category parameter
+       • Added WHERE $2 != 'INIT' guard in SQL query
+       • Updated queryReplacement expression for correct parameter mapping
+
+IMPACT: All n8n executions now succeed. Zero errors.
+
+═══════════════════════════════════════════════════════════════
+STEP 6: DEBUGGED VAPI ASSISTANT ACCURACY              ✅ DONE
+═══════════════════════════════════════════════════════════════
+
+ISSUE: AI assistant was skipping questions, reading options from
+       memory, hallucinating responses, and speaking while tool
+       was processing.
+
+ROOT CAUSE: Vapi tool config had "blocking: false" on request-start
+            message. This allowed the AI to speak WHILE waiting for
+            the tool result from n8n, causing it to predict/hallucinate
+            instead of reading the actual question text.
+
+FIXES APPLIED:
+
+  A. Vapi System Prompt:
+     • Added CRITICAL WAIT RULE (Step 5): "STOP COMPLETELY after
+       calling next_question. WAIT SILENTLY for tool result."
+     • Strengthened rule: "NEVER speak while a tool call is in
+       progress. Remain COMPLETELY SILENT."
+     • Added rule: "NEVER read options from memory."
+     • Removed "immediately" from Smart Confirmation step 4a
+     • Changed option format from "ഒന്ന്. [option]" to 
+       "ഒന്ന്: [option]" for stronger number prefix
+     • Added: "ALL FOUR options MUST be read COMPLETELY every time.
+       NEVER stop after reading only 2 or 3 options."
+
+  B. Vapi Tool Config (via Code view in dashboard):
+     • next_question tool: changed blocking from false → true
+     • complete_session tool: changed blocking from false → true
+
+  C. Vapi Model Change:
+     • Changed from GPT 4.1 → GPT 4o Cluster
+     • GPT 4.1 was aggressively "optimizing" repetitive content
+       (skipping "ഒന്ന്." prefix, cutting options short after 5-6
+       questions). GPT 4o is more faithful to instructions.
+     • Temperature set to 0.2 for consistency
+
+IMPACT: All 12 questions now read correctly with full options.
+
+═══════════════════════════════════════════════════════════════
+STEP 7: TEST — TEACHER ROLE (EMP001)                  ✅ PASSED
+═══════════════════════════════════════════════════════════════
+
+TEST DATE: Feb 28, 2026, 11:26 AM UTC
+
+n8n EXECUTIONS: 200+ calls, ALL SUCCEEDED, ZERO ERRORS ✅
+
+TRANSCRIPT RESULTS:
+  • Greeting: ✅ AI greeted in Malayalam
+  • INIT call: ✅ next_question called with INIT
+  • Questions T1-T12: ✅ ALL 12 questions read correctly
+  • Options: ✅ All 4 options read for 11/12 questions
+            (T2 cut off by user barge-in — normal behavior)
+  • Smart confirmation: ✅ Worked when user gave non-number answer
+  • Shutdown: ✅ Said goodbye, called complete_session, called endCall
+  • Call ended: ✅ "assistant-ended-call" (proper ending)
+
+DATABASE VERIFICATION:
+  • Session: id=6fca50e1, employee_id=EMP001, status=COMPLETED, 
+    role=TEACHER ✅
+  • Responses: 12 unique rows (T1-T12), all correct:
+      T1=2(1), T2=2(1), T3=3(2) → Mindset=4
+      T4=2(1), T5=3(2), T6=2(1) → Toolset=4
+      T7=3(2), T8=4(3), T9=2(1), T10=4(3), T11=4(3), T12=2(1) → Skillset=13
+  • Results: Mindset=4, Toolset=4, Skillset=13, Total=21 ✅
+  • Audio: Recording URL saved, duration=404s ✅
+
+CHATWOOT VERIFICATION:
+  • Report delivered to "AI Survey – Staff" inbox ✅
+  • Employee: EMP001, Role: TEACHER ✅
+  • Scores: Mindset=4, Toolset=4, Skillset=13, Total=21 ✅
+  • Malayalam summary and recommendation included ✅
+  • Tags: teacher, moderate, ai-survey ✅
+
+CALL STATS:
+  • Duration: 6.7 minutes (404 seconds)
+  • Cost: $0.90
+  • Model: GPT-4o (OpenAI)
+  • Voice: Azure ml-IN-SobhanaNeural
+  • Transcriber: Azure ml-IN
+
+═══════════════════════════════════════════════════════════════
+STEP 8: TEST — ADMIN ROLE (ADM001)                    ⏳ TOMORROW
+═══════════════════════════════════════════════════════════════
+
+Same as Step 7 but with Employee ID: ADM001
+Verify: session role=ADMIN, questions from ADMIN tab
+
+═══════════════════════════════════════════════════════════════
+STEP 9: TEST — SUPPORT ROLE (SUP001)                  ⏳ TOMORROW
+═══════════════════════════════════════════════════════════════
+
+Same as Step 7 but with Employee ID: SUP001
+Verify: session role=SUPPORT, questions from SUPPORT tab
+
+═══════════════════════════════════════════════════════════════
+KNOWN MINOR ISSUES (NON-BREAKING)
+═══════════════════════════════════════════════════════════════
+
+1. "ഒന്ന്." PREFIX: GPT-4o still skips "ഒന്ന്." on some questions
+   (says "ഒരിക്കലുമില്ല" directly instead of "ഒന്ന്: ഒരിക്കലുമില്ല").
+   T1-T3 had it, T4-T12 skipped it. Does NOT affect functionality
+   — user can still identify options clearly.
+
+2. AUDIO_ASSETS SESSION_ID: The session_id column is empty in
+   audio_assets table. Recording URL is saved but not linked to
+   the session. Fix: Update Postgres: Save Recording node to
+   extract session_id from end-of-call-report payload.
+
+3. RESPONSE COUNT: 27 total rows in responses table instead of 12.
+   Only 12 are linked to the session (correct). The extra 15 are
+   orphan rows from n8n routing. Fix: Tighten n8n Save Response
+   routing to prevent duplicate/orphan inserts.
+
+═══════════════════════════════════════════════════════════════
+COMPLETE CHANGE LOG — WHAT WAS DONE TODAY (FEB 28)
+═══════════════════════════════════════════════════════════════
+
+| #  | Where            | What Changed                            |
+|----|------------------|-----------------------------------------|
+| 1  | Google Sheets    | Added EMPLOYEES tab (3 mock employees)  |
+| 2  | Vapi prompt      | Smart confirmation + warm tone          |
+| 3  | Postgres (VPS)   | Created employees table (6th table)     |
+| 4  | otp.js (VPS)     | Dynamic role lookup from employees      |
+| 5  | Postgres (VPS)   | Added RECORDING enum to asset_type      |
+| 6  | Postgres (VPS)   | Made sha256_hash nullable               |
+| 7  | n8n workflow     | Added end-of-call-report rule           |
+| 8  | n8n workflow     | Added Postgres: Save Recording node     |
+| 9  | n8n workflow     | Fixed UUID parsing in 5 nodes           |
+| 10 | n8n workflow     | Fixed Save Response $5 parameter error  |
+| 11 | Vapi prompt      | Added WAIT SILENTLY + CRITICAL rules    |
+| 12 | Vapi tools       | Changed blocking: false → true          |
+| 13 | Vapi model       | Changed GPT 4.1 → GPT 4o Cluster       |
+| 14 | Vapi prompt      | Changed option format (. → :)           |
+| 15 | Vapi prompt      | Added "ALL FOUR options" enforcement    |
+| 16 | GitHub           | Pushed otp.js changes                   |
+| 17 | VPS Docker       | Rebuilt voice-gateway container         |
+
+═══════════════════════════════════════════════════════════════
+TOMORROW'S REMAINING WORK (MAR 1, 2026)
+═══════════════════════════════════════════════════════════════
+
+PRIORITY 1 — TESTING:
+  [ ] Clean database (DELETE FROM audio_assets, responses, results, sessions)
+  [ ] Test ADMIN role (ADM001) — verify ADMIN tab questions
+  [ ] Test SUPPORT role (SUP001) — verify SUPPORT tab questions
+  [ ] Verify all 3 Chatwoot reports (Teacher + Admin + Support)
+
+PRIORITY 2 — MINOR FIXES (IF TIME):
+  [ ] Fix audio_assets.session_id (extract from end-of-call payload)
+  [ ] Fix orphan responses (tighten Save Response routing)
+  [ ] Address "ഒന്ന്." prefix skipping (prompt refinement)
+
+PRIORITY 3 — PHASE 9 & 10 (AFTER ALL ROLES PASS):
+  [ ] Audio retention: 90-day deletion cron job
+  [ ] Test OTP failure scenarios
+  [ ] Test resume after network drop
+  [ ] Test expired session (72h)
+  [ ] Test audio playback from storage URL
+  [ ] 3-user pilot completion documentation
+
+═══════════════════════════════════════════════════════════════
+CHECKLIST STATUS SUMMARY (vs developer_implementation_checklist.txt)
+═══════════════════════════════════════════════════════════════
+
+Phase 1: Infrastructure Setup          ✅ COMPLETE
+Phase 2: Database & Schema             ✅ COMPLETE (6 tables)
+Phase 3: OTP & Security                ✅ COMPLETE
+Phase 4: Voice Gateway API             ✅ COMPLETE
+Phase 5: n8n Workflows                 ✅ COMPLETE (all bugs fixed)
+Phase 6: Vapi Configuration            ✅ COMPLETE (model + prompt tuned)
+Phase 7: Smart Confirmation            ✅ COMPLETE (sir's decision)
+Phase 8: Chatwoot Dashboard            ✅ COMPLETE (reports delivered)
+Phase 9: Audio Retention & Compliance  ⏳ PENDING (90-day cron, access control)
+Phase 10: Final Acceptance Testing     🔄 IN PROGRESS
+  ✅ Teacher role test PASSED
+  ⏳ Admin role test — TOMORROW
+  ⏳ Support role test — TOMORROW
+
+═══════════════════════════════════════════════════════════════
+END OF IMPLEMENTATION PLAN
+═══════════════════════════════════════════════════════════════

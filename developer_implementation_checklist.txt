@@ -2,7 +2,7 @@ AI VOICE SURVEY SYSTEM FOR SCHOOL EMPLOYEES
 
 Developer Implementation Checklist: 
 
-Environment: Contabo VPS (Frontend/API/DB) + n8n Cloud (Workflows) + Docker + Vapi + Sarvam AI
+Environment: Contabo VPS (Frontend/API/DB) + n8n Cloud (Workflows) + Docker + Vapi + Azure AI (Voice/STT in Vapi) + Sarvam AI (Voice Gateway backend only)
 
 Objective: Production-ready, legally defensible, network-resilient Malayalam voice survey system. 
 
@@ -12,9 +12,9 @@ Install Docker & Docker Compose
 
 Configure Nginx for Website & Voice Gateway API (SSL required for Microphone/PWA access) 
 
-Create Postgres databases: school_survey, chatwoot_production (n8n is Cloud-hosted)
+Create Postgres database: school_survey — NOTE: Chatwoot is Cloud-hosted (app.chatwoot.com), not self-hosted. No chatwoot_production DB needed on VPS.
 
-Configure Redis for Chatwoot 
+Configure Redis for session caching — NOTE: Redis is used for Voice Gateway session management, not Chatwoot (Chatwoot is Cloud-hosted). 
 
 Set up Docker networks (internal only exposure) 
 
@@ -57,11 +57,11 @@ Implement POST /session/start
 
 Implement POST /voice/turn 
 
-Integrate Sarvam STT (Malayalam) 
+Integrate Sarvam STT (Malayalam) — NOTE: Used in Voice Gateway backend only. Vapi uses Azure STT (ml-IN). 
 
 Convert WebM audio to WAV (16kHz mono) before STT if required 
 
-Integrate Sarvam TTS for Malayalam voice 
+Integrate Sarvam TTS for Malayalam voice — NOTE: Used in Voice Gateway backend only. Vapi uses Azure TTS (ml-IN-SobhanaNeural). 
 
 Store user audio + confirmation audio in S3-compatible storage 
 
@@ -96,27 +96,25 @@ Set webhook URL to n8n master webhook
 
 Disable autonomous AI scoring 
 
-Use Sarvam Malayalam voice (Bulbul:v1) 
+Use Azure Malayalam voice (ml-IN-SobhanaNeural) in Vapi — Sarvam Bulbul:v1 cannot be used inside Vapi. 
 
 Test real-time streaming in browser 
 
 
-7. Option Confirmation System (Legal Compliance) 
+7. Option Confirmation System (Smart Confirmation — Per Sir's Decision) 
 
 System must read option list (1–4) 
 
 User must select option number explicitly 
 
-System repeats selected option 
+Smart Confirmation: If answer is clear → save directly. If unclear/hesitant → AI repeats selected option and asks for confirmation before saving. 
 
-User confirms (Yes/Correct) 
+Tone must be friendly, natural, human-like — not artificial or overly professional. 
 
-Score saved only after confirmation 
-
-Store both answer audio and confirmation audio 
+Store full call recording (Vapi platform + audio_assets table) 
 
 
-8. Chatwoot Dashboard 
+8. Chatwoot Dashboard — NOTE: Using Chatwoot Cloud (app.chatwoot.com), not self-hosted. 
 
 Create Inbox: 'AI Survey – Staff' 
 

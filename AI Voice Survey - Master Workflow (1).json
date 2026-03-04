@@ -13,10 +13,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -800,
-        -368
+        -5488,
+        -496
       ],
-      "id": "4334e0a9-65ab-49be-9c2f-908024235dcb",
+      "id": "659f415f-91f8-4235-ad9e-f120638a21cf",
       "name": "Webhook: Vapi Master",
       "webhookId": "633d16ea-082f-439b-93aa-e0d712ecb6a2"
     },
@@ -72,6 +72,31 @@
               },
               "renameOutput": true,
               "outputKey": "Status Updates"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d62eb035-8422-4dc5-a514-25f054dd07c6",
+                    "leftValue": "={{ $json.body.message.type }}",
+                    "rightValue": "end-of-call-report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "End of Call Report"
             }
           ]
         },
@@ -82,10 +107,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -608,
-        -224
+        -5296,
+        -480
       ],
-      "id": "4a789d4b-8295-4c3a-ae27-24dd6b3717b7",
+      "id": "13956889-d6ab-4542-8f7c-0f862b48f1f4",
       "name": "Switch: Event Type"
     },
     {
@@ -148,10 +173,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -320,
-        -256
+        -5136,
+        -672
       ],
-      "id": "0909c2a4-6fb5-4b51-886c-a66ff81bf456",
+      "id": "fffb8a52-5d05-4426-859a-63d732103b5c",
       "name": "Switch: Tool Call Name"
     },
     {
@@ -159,16 +184,16 @@
         "operation": "executeQuery",
         "query": "SELECT \n    id AS session_id, \n    employee_id, \n    status, \n    role,\n    (created_at > NOW() - INTERVAL '72 hours') AS is_fresh,\n    (status = 'VERIFIED' OR status = 'IN_PROGRESS') AS is_authorized\nFROM sessions \nWHERE id = $1;",
         "options": {
-          "queryReplacement": "={{ [typeof $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments).session_id : $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id] }}"
+          "queryReplacement": "=={{ $(\"Code: Parse Tool Args\").first().json.session_id }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -112,
-        -384
+        -4704,
+        -624
       ],
-      "id": "6519761c-fc3d-4503-98de-d55759ca6cb0",
+      "id": "10e3c88a-e653-4b91-a5ea-37508c9d7203",
       "name": "Postgres: Fetch Session",
       "credentials": {
         "postgres": {
@@ -215,10 +240,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        64,
-        -464
+        -4512,
+        -672
       ],
-      "id": "2ab6c91f-1ce0-4213-b739-c3799a09b6c3",
+      "id": "bffc9865-fd2f-4f45-ad5a-8c0d32d20425",
       "name": "If: Valid Session?"
     },
     {
@@ -230,10 +255,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        240,
-        -112
+        -4336,
+        -320
       ],
-      "id": "d0ce1f4e-a12b-4140-b394-c518b42485cb",
+      "id": "a29ca4ce-cf39-45b8-b354-8451cc53c588",
       "name": "Respond: Session Invalid"
     },
     {
@@ -321,10 +346,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        256,
-        -432
+        -4320,
+        -640
       ],
-      "id": "a758a2e4-2934-4cb1-9095-82fd98fdae9c",
+      "id": "a3f4363e-1ab5-44f0-b244-39daee1cbe55",
       "name": "Switch — User Role Router"
     },
     {
@@ -346,10 +371,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        528,
-        -416
+        -4048,
+        -624
       ],
-      "id": "53a7e9ca-2849-4247-a889-1b4975598bde",
+      "id": "61f8c4fd-8100-4421-b425-f25b51c4c789",
       "name": "Get row(s) in sheet",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -369,10 +394,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1088,
-        -416
+        -3488,
+        -624
       ],
-      "id": "fd3b05b6-30c4-4c30-98db-a46aa3224661",
+      "id": "bed7c856-a84d-4963-8546-615be3ea3c63",
       "name": "Postgres: Count Responses",
       "credentials": {
         "postgres": {
@@ -383,15 +408,15 @@
     },
     {
       "parameters": {
-        "jsCode": "// 1. Get total answers and question bank\nconst answersCount = $(\"Postgres: Count Responses\").first().json.answer_count;\nconst questions = $(\"Get row(s) in sheet\").all().map(item => item.json);\n\n// 2. CLINICAL RECTIFICATION: Handle stringified arguments and correct path\nconst rawArgs = $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments;\nconst args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs;\nconst sessionId = args.session_id;\n\n// 3. Logic: If Survey is Finished\nif (answersCount >= questions.length) {\n  return [{\n    json: {\n      finished: true,\n      session_id: sessionId,\n      message: \"നിങ്ങളുടെ സർവേ വിജയകരമായി പൂർത്തിയായിരിക്കുന്നു. നന്ദി.\"\n    }\n  }];\n}\n\n// 4. Logic: Pick Next Question\nconst nextQuestion = questions[answersCount];\n\nreturn [{\n  json: {\n    finished: false,\n    session_id: sessionId,\n    question_id: nextQuestion.question_id,\n    question_text: nextQuestion.question_ml,\n    options: [\n      nextQuestion.opt1,\n      nextQuestion.opt2,\n      nextQuestion.opt3,\n      nextQuestion.opt4\n    ]\n  }\n}];"
+        "jsCode": "// 1. Get total answers and question bank\nconst answersCount = $(\"Postgres: Count Responses\").first().json.answer_count;\nconst questions = $(\"Get row(s) in sheet\").all().map(item => item.json);\n\n// 2. CLINICAL RECTIFICATION: Handle stringified arguments and correct path\nconst rawArgs = $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments;\nconst args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs;\nconst sessionId = args.session_id;\n\n// 3. Logic: If Survey is Finished\nif (answersCount >= questions.length) {\n  return [{\n    json: {\n      finished: true,\n      session_id: sessionId,\n      message: \"നിങ്ങളുടെ സർവേ വിജയകരമായി പൂർത്തിയായിരിക്കുന്നു. നന്ദി.\"\n    }\n  }];\n}\n\n// 4. Logic: Pick Next Question\nconst nextQuestion = questions[answersCount];\n\nreturn [{\n  json: {\n    finished: false,\n    session_id: sessionId,\n    question_id: nextQuestion.question_id,\n    question_text: nextQuestion.question_ml,\n    options: [\n      nextQuestion.opt1,\n      nextQuestion.opt2,\n      nextQuestion.opt3,\n      nextQuestion.opt4\n    ]\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1264,
-        -416
+        -3312,
+        -624
       ],
-      "id": "170ae8ef-73d5-4714-921d-accb66242a2e",
+      "id": "eac30764-3c2b-4b08-827c-d95d7ab60e46",
       "name": "Code: Pick Next Question"
     },
     {
@@ -403,27 +428,27 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1600,
-        -272
+        -2832,
+        -560
       ],
-      "id": "307e70d3-60c3-4837-9007-bef9533f0c4c",
+      "id": "a3f0da92-2295-4e46-8c7b-a5f4728a3234",
       "name": "Respond: Tool Call Result"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO responses (session_id, question_id, selected_option, category, score, confirmed)\nVALUES ($1, $2, $3, $4, $5, TRUE)\nON CONFLICT (session_id, question_id) \nDO UPDATE SET \n    selected_option = EXCLUDED.selected_option, \n    category = EXCLUDED.category,\n    score = EXCLUDED.score,\n    confirmed = TRUE,\n    answered_at = NOW();",
+        "query": "INSERT INTO responses (session_id, question_id, selected_option, category, score, confirmed)\nSELECT $1::uuid, $2, $3::int, $4, $5::int, TRUE\nWHERE $2 != 'INIT'\nON CONFLICT (session_id, question_id)\nDO UPDATE SET \n    selected_option = EXCLUDED.selected_option, \n    category = EXCLUDED.category,\n    score = EXCLUDED.score,\n    confirmed = TRUE,\n    answered_at = NOW();",
         "options": {
-          "queryReplacement": "={{ [ $(\"Postgres: Fetch Session\").first().json.session_id, (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).question_id, (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).answer, $(\"Get row(s) in sheet\").all().find(q => q.json.question_id === (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).question_id)?.json.category, ((typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).answer || 0) - 1 ] }}"
+          "queryReplacement": "=={{ $(\"Postgres: Fetch Session\").first().json.session_id }}, {{ $(\"Code: Parse Tool Args\").first().json.question_id }}, {{ $(\"Code: Parse Tool Args\").first().json.answer }}, {{ $(\"Get row(s) in sheet\").all().find(q => q.json.question_id === $(\"Code: Parse Tool Args\").first().json.question_id)?.json.category || 'Unknown' }}, {{ ($(\"Code: Parse Tool Args\").first().json.answer || 0) - 1 }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        864,
-        -288
+        -3712,
+        -496
       ],
-      "id": "c9c60d46-4fb9-4a39-b3ff-27aee053dd59",
+      "id": "216c7265-bfd9-4518-ad30-50994b6a36fb",
       "name": "Postgres: Save Response",
       "credentials": {
         "postgres": {
@@ -460,10 +485,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1440,
-        -448
+        -3136,
+        -656
       ],
-      "id": "e4ee286e-eb3c-49b7-99af-146b4c9f82a8",
+      "id": "c5018e88-5622-48b7-a81a-aef9f63ce50c",
       "name": "If: Survey Finished?"
     },
     {
@@ -471,16 +496,16 @@
         "operation": "executeQuery",
         "query": "INSERT INTO results (session_id, mindset_score, toolset_score, skillset_score, total_score, summary, recommendation)\nSELECT \n    session_id,\n    SUM(CASE WHEN category = 'Mindset' THEN score ELSE 0 END) as m_score,\n    SUM(CASE WHEN category = 'Toolset' THEN score ELSE 0 END) as t_score,\n    SUM(CASE WHEN category = 'Skillset' THEN score ELSE 0 END) as s_score,\n    SUM(score) as tot,\n    -- Deterministic Summary (Line 81)\n    CASE \n        WHEN SUM(score) >= 24 THEN 'മികച്ച പ്രകടനം. ഡിജിറ്റൽ ബോധവൽക്കരണത്തിൽ താങ്കൾ മുന്നിലാണ്.'\n        WHEN SUM(score) >= 12 THEN 'നല്ല നിലവാരം. ചില മേഖലകളിൽ കൂടുതൽ ശ്രദ്ധ ആവശ്യമാണ്.'\n        ELSE 'പ്രാഥമിക ഘട്ടം. പരിശീലന പരിപാടികളിൽ പങ്കെടുക്കുന്നത് നന്നായിരിക്കും.'\n    END as summary_txt,\n    -- Deterministic Recommendation\n    CASE \n        WHEN SUM(score) >= 24 THEN 'തുടർന്നും ഈ മികവ് നിലനിർത്തുക.'\n        ELSE 'ഡിജിറ്റൽ സ്കിൽ വർദ്ധിപ്പിക്കാനുള്ള വർക്ക്ഷോപ്പുകളിൽ പങ്കെടുക്കുക.'\n    END as rec_txt\nFROM responses\nWHERE session_id = $1\nGROUP BY session_id\nON CONFLICT (session_id) DO UPDATE SET\n    mindset_score = EXCLUDED.mindset_score,\n    toolset_score = EXCLUDED.toolset_score,\n    skillset_score = EXCLUDED.skillset_score,\n    total_score = EXCLUDED.total_score,\n    summary = EXCLUDED.summary,\n    recommendation = EXCLUDED.recommendation,\n    computed_at = NOW()\nRETURNING *;",
         "options": {
-          "queryReplacement": "={{ [ (typeof $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments).session_id : $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id) ] }}"
+          "queryReplacement": "=={{ $(\"Code: Parse Tool Args\").first().json.session_id }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1680,
-        -512
+        -4016,
+        -944
       ],
-      "id": "6c21fd7b-a16b-4feb-9c2e-edaf9a03fc51",
+      "id": "e5eab0e3-9f32-4f79-bf7c-275a01b3f606",
       "name": "Postgres: Compute Final Scores",
       "credentials": {
         "postgres": {
@@ -494,16 +519,16 @@
         "operation": "executeQuery",
         "query": "UPDATE sessions SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1 AND status != 'COMPLETED';",
         "options": {
-          "queryReplacement": "={{ [ (typeof $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments).session_id : $node[\"Webhook: Vapi Master\"].json.body.message.toolCalls[0].function.arguments.session_id) ] }}"
+          "queryReplacement": "=={{ $(\"Code: Parse Tool Args\").first().json.session_id }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        2032,
-        -528
+        -3488,
+        -992
       ],
-      "id": "81b4c25f-9249-4b04-8021-d07c9d1cc8d6",
+      "id": "b50c5655-8b8a-45d0-a1f1-6ff3a4ea1634",
       "name": "Postgres: Burn Session Token",
       "credentials": {
         "postgres": {
@@ -521,10 +546,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2208,
-        -528
+        -3200,
+        -944
       ],
-      "id": "8d264a00-79a7-4263-be2b-961e1f6000ce",
+      "id": "0d30c30c-006c-4c07-9af5-f0d646ca36da",
       "name": "Respond: Survey Complete"
     },
     {
@@ -539,7 +564,7 @@
           "conditions": [
             {
               "id": "a4bc5d74-08e0-4757-a82f-4c5686522a6f",
-              "leftValue": "={{ (typeof $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments === 'string' ? JSON.parse($(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments) : $(\"Webhook: Vapi Master\").first().json.body.message.toolCalls[0].function.arguments).question_id }}",
+              "leftValue": "=={{ $(\"Code: Parse Tool Args\").first().json.question_id }}",
               "rightValue": "INIT",
               "operator": {
                 "type": "string",
@@ -555,10 +580,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        688,
-        -432
+        -3888,
+        -640
       ],
-      "id": "876dfb31-539e-4308-b625-868d9b94a1b6",
+      "id": "6ca0ac12-9bc1-400e-8649-8f5cd885e7ae",
       "name": "If: Initial Call?"
     },
     {
@@ -572,23 +597,23 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -272,
-        -48
+        -4784,
+        -176
       ],
-      "id": "03acb8ad-5900-48cc-abf1-e4708556506e",
+      "id": "c791550b-c03d-40fe-9b75-efbed1edd5c9",
       "name": "Respond: Event Acknowledged"
     },
     {
       "parameters": {
-        "jsCode": "// === CHATWOOT CONFIGURATION ===\nconst API_TOKEN = 'MJxWqHUBFJNvRaR1v6bBA8wE';\nconst ACCOUNT_ID = '153238';\nconst INBOX_ID = '97309';\nconst BASE_URL = `https://app.chatwoot.com/api/v1/accounts/${ACCOUNT_ID}`;\nconst reqHeaders = { 'Content-Type': 'application/json', 'api_access_token': API_TOKEN };\n\n// === GET DATA FROM PREVIOUS NODES ===\nconst session = $node[\"Postgres: Fetch Session\"].json;\nconst scores = $node[\"Postgres: Compute Final Scores\"].json;\nconst employeeId = session.employee_id;\nconst role = session.role;\nconst sessionId = session.session_id;\n\ntry {\n  // 1. Create Contact\n  const contact = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/contacts`,\n    headers: reqHeaders,\n    body: { name: `Employee ${employeeId}`, identifier: String(employeeId) },\n  });\n  const contactId = contact.payload?.contact?.id || contact.payload?.id;\n\n  // 2. Create Conversation\n  const convo = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/conversations`,\n    headers: reqHeaders,\n    body: { contact_id: contactId, inbox_id: parseInt(INBOX_ID) },\n  });\n  const convoId = convo.id;\n\n  // 3. Send Combined Report\n  const reportMsg = `📋 Survey Report\\n👤 Employee: ${employeeId}\\n🏷️ Role: ${role}\\n🔑 Session: ${sessionId}\\n📅 Date: ${new Date().toLocaleDateString('en-IN')}\\n\\n📊 Scores\\n🧠 Mindset: ${scores.mindset_score}\\n🔧 Toolset: ${scores.toolset_score}\\n🎯 Skillset: ${scores.skillset_score}\\n📈 Total: ${scores.total_score}\\n\\n💡 Summary & Recommendation\\n📝 ${scores.summary}\\n🎓 ${scores.recommendation}`;\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/conversations/${convoId}/messages`,\n    headers: reqHeaders,\n    body: { content: reportMsg, message_type: 'outgoing' },\n  });\n\n  // 4. Apply Labels\n  const scoreTag = scores.total_score >= 24 ? 'high-performer' : scores.total_score >= 12 ? 'moderate' : 'needs-training';\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/conversations/${convoId}/labels`,\n    headers: reqHeaders,\n    body: { labels: [role.toLowerCase(), scoreTag, 'ai-survey'] },\n  });\n\n  return [{ json: { chatwoot_status: 'pushed', conversation_id: convoId } }];\n\n} catch (error) {\n  return [{ json: { chatwoot_status: 'failed', error: error.message } }];\n}"
+        "jsCode": "// === CHATWOOT CONFIGURATION ===\nconst API_TOKEN = 'MJxWqHUBFJNvRaR1v6bBA8wE';\nconst ACCOUNT_ID = '153238';\nconst INBOX_ID = '97309';\nconst BASE_URL = `https://app.chatwoot.com/api/v1/accounts/${ACCOUNT_ID}`;\nconst reqHeaders = { 'Content-Type': 'application/json', 'api_access_token': API_TOKEN };\n\n// === GET DATA FROM PREVIOUS NODES ===\nconst session = $node[\"Postgres: Fetch Session\"].json;\nconst scores = $node[\"Postgres: Compute Final Scores\"].json;\nconst employeeId = session.employee_id;\nconst role = session.role;\nconst sessionId = session.session_id;\n\ntry {\n  // 1. SEARCH for existing contact by identifier (prevents 422 duplicate error)\n  let contactId;\n  try {\n    const searchResult = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `${BASE_URL}/contacts/search`,\n      headers: reqHeaders,\n      qs: { q: String(employeeId), include_contacts: 'true' },\n    });\n    // Find contact with matching identifier\n    const existing = searchResult.payload?.find(c => c.identifier === String(employeeId));\n    if (existing) {\n      contactId = existing.id;\n    }\n  } catch (searchErr) {\n    // Search failed, will try to create below\n  }\n\n  // 2. CREATE contact only if not found\n  if (!contactId) {\n    const contact = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${BASE_URL}/contacts`,\n      headers: reqHeaders,\n      body: { name: `Employee ${employeeId}`, identifier: String(employeeId) },\n    });\n    contactId = contact.payload?.contact?.id || contact.payload?.id;\n  }\n\n  // 3. Create Conversation\n  const convo = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/conversations`,\n    headers: reqHeaders,\n    body: { contact_id: contactId, inbox_id: parseInt(INBOX_ID) },\n  });\n  const convoId = convo.id;\n\n  // 4. Send Combined Report\n  const reportMsg = `📋 Survey Report\\n👤 Employee: ${employeeId}\\n🏷️ Role: ${role}\\n🔑 Session: ${sessionId}\\n📅 Date: ${new Date().toLocaleDateString('en-IN')}\\n\\n📊 Scores\\n🧠 Mindset: ${scores.mindset_score}\\n🔧 Toolset: ${scores.toolset_score}\\n🎯 Skillset: ${scores.skillset_score}\\n📈 Total: ${scores.total_score}\\n\\n💡 Summary & Recommendation\\n📝 ${scores.summary}\\n🎓 ${scores.recommendation}`;\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/conversations/${convoId}/messages`,\n    headers: reqHeaders,\n    body: { content: reportMsg, message_type: 'outgoing' },\n  });\n\n  // 5. Apply Labels\n  const scoreTag = scores.total_score >= 24 ? 'high-performer' : scores.total_score >= 12 ? 'moderate' : 'needs-training';\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${BASE_URL}/conversations/${convoId}/labels`,\n    headers: reqHeaders,\n    body: { labels: [role.toLowerCase(), scoreTag, 'ai-survey'] },\n  });\n\n  return [{ json: { chatwoot_status: 'pushed', conversation_id: convoId } }];\n\n} catch (error) {\n  return [{ json: { chatwoot_status: 'failed', error: error.message } }];\n}\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1840,
-        -656
+        -3712,
+        -944
       ],
-      "id": "6ac5a6e0-ca5e-4a78-9181-fbb1fa535592",
+      "id": "f89788ea-f0dd-4786-b0f0-c3e19958919f",
       "name": "Chatwoot: Push Survey Report"
     },
     {
@@ -628,11 +653,47 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        256,
-        -600
+        -4320,
+        -816
       ],
-      "id": "c62b9213-43f1-43e8-8db9-f67f5255476a",
+      "id": "9f4bc5e0-0e5a-470f-bafb-021aa91038cc",
       "name": "Switch: Tool Action Branch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audio_assets (asset_type, storage_url, duration_seconds)\nSELECT 'RECORDING'::asset_type, $1, $2\nWHERE $1 IS NOT NULL AND $1 != '';",
+        "options": {
+          "queryReplacement": "=={{ $json.body.message.artifact?.recordingUrl || $json.body.message.recordingUrl || '' }}, {{ Math.round($json.body.message.durationSeconds || 0) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -4896,
+        -368
+      ],
+      "id": "c016650d-875c-4e07-8dca-8603980cd1e0",
+      "name": "Postgres: Save Recording",
+      "credentials": {
+        "postgres": {
+          "id": "RLWnNYbHUdODA2hb",
+          "name": "n8n to cantabo pvs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const toolCall = $input.first().json.body.message.toolCalls[0];\nconst rawArgs = toolCall['function']['arguments'];\nconst args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs;\n\nreturn [{\n  json: {\n    session_id: args.session_id || '',\n    question_id: args.question_id || 'INIT',\n    answer: parseInt(args.answer) || 0,\n    toolCallId: toolCall.id || ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4912,
+        -672
+      ],
+      "id": "d6641d5a-dda0-4838-a293-6d8805247507",
+      "name": "Code: Parse Tool Args"
     }
   ],
   "pinData": {},
@@ -666,6 +727,13 @@
         ],
         [
           {
+            "node": "Postgres: Save Recording",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Respond: Event Acknowledged",
             "type": "main",
             "index": 0
@@ -677,14 +745,14 @@
       "main": [
         [
           {
-            "node": "Postgres: Fetch Session",
+            "node": "Code: Parse Tool Args",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Postgres: Fetch Session",
+            "node": "Code: Parse Tool Args",
             "type": "main",
             "index": 0
           }
@@ -875,17 +943,39 @@
           }
         ]
       ]
+    },
+    "Postgres: Save Recording": {
+      "main": [
+        [
+          {
+            "node": "Respond: Event Acknowledged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Parse Tool Args": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Fetch Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "48305799-8f5b-4fdc-919d-809ca8a4ec4f",
+  "versionId": "fc7daf99-74e4-4fe3-a4fd-6c4044e1c437",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0a606510a39546350ca950cb0bd9bb108927f2ed4772cdeaafdc6da681a3e8e1"
   },
-  "id": "TpzHhaMhOY8cERUu",
+  "id": "XceOSs3X6Lr9ZntC",
   "tags": []
 }
